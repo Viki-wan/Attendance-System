@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Attendance Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="header">
+            <h2>Attendance Report: {{ session_details.class_name }} ({{ session_details.course_name }})</h2>
+            <a href="{{ url_for('dashboard') }}" class="btn">Dashboard</a>
+        </div>
+        <div>
+            <strong>Date:</strong> {{ session_details.date }}<br>
+            <strong>Time:</strong> {{ session_details.start_time }} - {{ session_details.end_time }}<br>
+        </div>
+        <div class="stats-summary">
+            <span><strong>Present:</strong> {{ present_students|length }}</span>
+            <span><strong>Absent:</strong> {{ absent_students|length }}</span>
+            <span><strong>Total:</strong> {{ present_students|length + absent_students|length }}</span>
+        </div>
+        <h3>Present Students</h3>
+        <ul>
+            {% for s in present_students %}
+                <li>{{ s.student_id }} - {{ s.name }}</li>
+            {% else %}
+                <li>No students present.</li>
+            {% endfor %}
+        </ul>
+        <h3>Absent Students</h3>
+        <ul>
+            {% for s in absent_students %}
+                <li>{{ s.student_id }} - {{ s.name }}</li>
+            {% else %}
+                <li>No students absent.</li>
+            {% endfor %}
+        </ul>
+        <h3>All Attendance Records</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Student ID</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in attendance %}
+                <tr>
+                    <td>{{ record.student_id }}</td>
+                    <td>
+                        {% set s = present_students|selectattr('student_id', 'equalto', record.student_id)|first %}
+                        {% if not s %}
+                            {% set s = absent_students|selectattr('student_id', 'equalto', record.student_id)|first %}
+                        {% endif %}
+                        {{ s.name if s else '' }}
+                    </td>
+                    <td class="status-{{ record.status }}">{{ record.status }}</td>
+                    <td>{{ record.timestamp if record.timestamp else 'N/A' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center;">No attendance records found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html> 

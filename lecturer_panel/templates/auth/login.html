@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Face Recognition Attendance System{% endblock %}
+
+{% block body_class %}auth-page{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-page {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .auth-container {
+        width: 100%;
+        max-width: 400px;
+        padding: 0 15px;
+    }
+    
+    .auth-card {
+        background: white;
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        border: none;
+    }
+    
+    .auth-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .auth-header h1 {
+        color: #333;
+        font-size: 28px;
+        margin-bottom: 10px;
+    }
+    
+    .auth-header p {
+        color: #666;
+        font-size: 16px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    .form-control {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    
+    .btn-login {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: 600;
+        width: 100%;
+        transition: transform 0.2s;
+    }
+    
+    .btn-login:hover {
+        transform: translateY(-2px);
+    }
+    
+    .input-group-text {
+        border: 2px solid #e9ecef;
+        border-right: none;
+        background: #f8f9fa;
+        color: #666;
+    }
+    
+    .input-group .form-control {
+        border-left: none;
+    }
+    
+    .password-toggle {
+        cursor: pointer;
+        background: none;
+        border: none;
+        color: #666;
+        padding: 0 10px;
+    }
+    
+    .password-toggle:hover {
+        color: #333;
+    }
+    
+    .auth-footer {
+        text-align: center;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .auth-footer a {
+        color: #667eea;
+        text-decoration: none;
+    }
+    
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+    
+    .loading {
+        display: none;
+    }
+    
+    .form-check {
+        margin: 15px 0;
+    }
+    
+    .form-check-input:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+    
+    .system-info {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    
+    .system-info h6 {
+        color: #333;
+        margin-bottom: 5px;
+    }
+    
+    .system-info small {
+        color: #666;
+    }
+    
+    .alert {
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .version-info {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="card auth-card">
+        <div class="auth-header">
+            <i class="fas fa-user-graduate fa-3x text-primary mb-3"></i>
+            <h1>Lecturer Login</h1>
+            <p>Access your attendance dashboard</p>
+        </div>
+        
+        <div class="system-info">
+            <h6><i class="fas fa-info-circle"></i> System Status</h6>
+            <small class="text-success">
+                <i class="fas fa-check-circle"></i> All systems operational
+            </small>
+        </div>
+        
+        <form method="POST" id="loginForm">
+            {{ form.hidden_tag() }}
+            
+            <div class="form-group">
+                {{ form.lecturer_id.label(class="form-label") }}
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-id-badge"></i>
+                    </span>
+                    {{ form.lecturer_id(class="form-control", placeholder="Enter your Lecturer ID or Email") }}
+                </div>
+                {% if form.lecturer_id.errors %}
+                    <div class="text-danger mt-1">
+                        {% for error in form.lecturer_id.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                {{ form.password.label(class="form-label") }}
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-lock"></i>
+                    </span>
+                    {{ form.password(class="form-control", placeholder="Enter your password", id="passwordField") }}
+                    <button type="button" class="password-toggle" id="togglePassword">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                {% if form.password.errors %}
+                    <div class="text-danger mt-1">
+                        {% for error in form.password.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-check">
+                {{ form.remember_me(class="form-check-input") }}
+                {{ form.remember_me.label(class="form-check-label") }}
+            </div>
+            
+            <button type="submit" class="btn btn-primary btn-login">
+                <span class="login-text">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </span>
+                <span class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Logging in...
+                </span>
+            </button>
+        </form>
+        
+        <div class="auth-footer">
+            <p class="mb-2">
+                <a href="{{ url_for('auth.forgot_password') }}">
+                    <i class="fas fa-key"></i> Forgot Password?
+                </a>
+            </p>
+            <p class="mb-0">
+                <small class="text-muted">
+                    First time using the system? Contact your administrator for setup.
+                </small>
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="version-info">
+    v1.0.0 | Build {{ build_date }}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+import { setupPasswordToggle } from "{{ url_for('static', filename='js/auth/password_toggle.js') }}";
+import { setupFormLoading } from "{{ url_for('static', filename='js/auth/form_loading.js') }}";
+import { autoDismissFlashMessages } from "{{ url_for('static', filename='js/auth/flash_messages.js') }}";
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupPasswordToggle('togglePassword', 'passwordField');
+    setupFormLoading('loginForm', 'loginBtn');
+    autoDismissFlashMessages();
+    // Phone field auto-format and focus
+    const phoneField = document.getElementById('phone');
+    const passwordField = document.getElementById('passwordField');
+    if (phoneField && !phoneField.value) {
+        phoneField.focus();
+    } else if (passwordField && !passwordField.value) {
+        passwordField.focus();
+    }
+    if (phoneField) {
+        phoneField.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 0 && !value.startsWith('0')) {
+                value = '0' + value;
+            }
+            if (value.length > 10) {
+                value = value.substring(0, 10);
+            }
+            e.target.value = value;
+        });
+        phoneField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && passwordField) {
+                e.preventDefault();
+                passwordField.focus();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

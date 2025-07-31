@@ -19,7 +19,7 @@ class AttendanceFaker:
         
         # Date range for attendance records (last 2 months)
         self.end_date = datetime(2025, 4, 28)
-        self.start_date = datetime(2025, 3, 28)
+        self.start_date = datetime(2025, 1, 28)
         
         # Store random attendance rates by class_id
         self.class_attendance_rates = {}
@@ -220,6 +220,9 @@ class AttendanceFaker:
             # Mark students as present based on attendance rate
             present_students = random.sample(eligible_students, num_present)
             
+            # Students who are not present are marked absent
+            absent_students = [s for s in eligible_students if s not in present_students]
+
             # Create attendance records
             records_added = 0
             for student in present_students:
@@ -253,10 +256,22 @@ class AttendanceFaker:
                     print(f"Error processing time for session {session['session_id']}: {e}")
                     continue
             
+            # Process absent students
+            for student in absent_students:
+                try:
+                    # Insert new attendance record for absent student
+                    self.cursor.execute("""
+                        INSERT INTO attendance (student_id, session_id, timestamp, status)
+                        VALUES (?, ?, NULL, 'Absent')
+                    """, (student['student_id'], session['session_id']))
+                    records_added += 1
+                except sqlite3.Error as e:
+                    print(f"Error adding absent attendance record: {e}")
+
             # Commit transaction for this session
             self.conn.commit()
             
-            print(f"Added {records_added} attendance records for session {session['session_id']}")
+            print(f"Added {records_added} attendance records for session {session['session_id']} ({len(present_students)} present, {len(absent_students)} absent)")
             total_records += records_added
             sessions_processed += 1
         

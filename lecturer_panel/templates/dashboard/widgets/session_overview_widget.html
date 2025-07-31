@@ -1,0 +1,25 @@
+<div class="widget">
+    <div class="widget-header">
+        <h3 class="widget-title">
+            <div class="widget-icon" style="background-color: var(--success-color);">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            Today's Sessions
+        </h3>
+    </div>
+    <div class="session-list">
+        {% for session in sessions %}
+        <div class="session-item">
+            <div class="session-info">
+                <h4>{{ session.title }}</h4>
+                <p>{{ session.time }} • {{ session.location }}</p>
+                <div class="progress">
+                    <div class="progress-bar" style="width: {{ session.progress }}%;"></div>
+                </div>
+            </div>
+            <span class="session-status status-{{ session.status|lower }}">{{ session.status }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div> 
+</div> 

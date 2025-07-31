@@ -1,0 +1,30 @@
+<div class="widget">
+    <div class="widget-header">
+        <h3 class="widget-title">
+            <div class="widget-icon" style="background-color: var(--danger-color);">
+                <i class="fas fa-video"></i>
+            </div>
+            Camera Status
+        </h3>
+    </div>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-value" style="color: var(--success-color);">
+                <i class="fas fa-circle"></i>
+            </div>
+            <div class="stat-label">{{ 'Camera Online' if camera_status.online else 'Camera Offline' }}</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color: var(--success-color);">{{ camera_status.resolution }}</div>
+            <div class="stat-label">Resolution</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color: var(--warning-color);">{{ camera_status.light_quality }}</div>
+            <div class="stat-label">Light Quality</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" style="color: var(--success-color);">{{ camera_status.recognition_rate }}%</div>
+            <div class="stat-label">Recognition Rate</div>
+        </div>
+    </div>
+</div>

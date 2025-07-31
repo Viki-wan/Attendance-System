@@ -927,7 +927,7 @@ class DatabaseService:
             conn.close()
             return classes
         except Exception as e:
-            print(f"Error getting classes by instructor: {e}")
+            print(f"Database error in get_classes_by_instructor: {e}")
             return []
         
     def get_filtered_attendance(self, filters):
@@ -1072,108 +1072,6 @@ class DatabaseService:
         conn.close()
         return classes
 
-    
-    def get_filtered_attendance(self, filters):
-        """
-        Get attendance data based on provided filters
-        
-        Args:
-            filters (dict): Dictionary containing filter criteria like:
-                - from_date: Start date (YYYY-MM-DD)
-                - to_date: End date (YYYY-MM-DD)
-                - course_code: Filter by course code
-                - class_id: Filter by class ID
-                - student_search: Filter by student name or ID
-                - include_chart: Boolean indicating if chart data should be included
-                
-        Returns:
-            list: List of dictionaries containing attendance records
-        """
-        try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            query_params = []
-            
-            query = """
-                SELECT 
-                    a.id,
-                    cs.date,
-                    co.course_code,
-                    c.class_name,
-                    a.student_id,
-                    s.fname || ' ' || s.lname as student_name,
-                    a.status,
-                    a.timestamp
-                FROM 
-                    attendance a
-                JOIN 
-                    class_sessions cs ON a.session_id = cs.session_id
-                JOIN 
-                    classes c ON cs.class_id = c.class_id
-                JOIN 
-                    courses co ON c.course_code = co.course_code
-                JOIN 
-                    students s ON a.student_id = s.student_id
-                WHERE 
-                    1=1
-            """
-            
-            # Add date range filters
-            if filters.get('from_date'):
-                query += " AND cs.date >= ?"
-                query_params.append(filters['from_date'])
-                
-            if filters.get('to_date'):
-                query += " AND cs.date <= ?"
-                query_params.append(filters['to_date'])
-                
-            # Add course filter
-            if filters.get('course_code'):
-                query += " AND co.course_code = ?"
-                query_params.append(filters['course_code'])
-                
-            # Add class filter
-            if filters.get('class_id'):
-                query += " AND c.class_id = ?"
-                query_params.append(filters['class_id'])
-                
-            # Add student search filter
-            if filters.get('student_search'):
-                search_term = f"%{filters['student_search']}%"
-                query += """ AND (
-                    a.student_id LIKE ? OR
-                    s.fname || ' ' || s.lname LIKE ?
-                )"""
-                query_params.append(search_term)
-                query_params.append(search_term)
-            
-            # Add ordering
-            query += " ORDER BY cs.date, co.course_code, c.class_name, s.lname, s.fname"
-            
-            cursor.execute(query, query_params)
-            
-            # Convert results to list of dictionaries
-            attendance_records = []
-            for row in cursor.fetchall():
-                attendance_records.append({
-                    'id': row[0],
-                    'date': row[1],
-                    'course_code': row[2],
-                    'class_name': row[3],
-                    'student_id': row[4],
-                    'name': row[5],
-                    'status': row[6],
-                    'timestamp': row[7]
-                })
-            
-            conn.close()
-            return attendance_records
-            
-        except Exception as e:
-            print(f"Error getting filtered attendance: {e}")
-            return []
-            
     def get_filtered_classes(self, instructor_id=None, year=None):
         """
         Get classes filtered by instructor and/or year of study
@@ -1239,40 +1137,107 @@ class DatabaseService:
             print(f"Error getting filtered classes: {e}")
             return []
         
-    def get_classes_by_course(self, course_code):
-        """
-        Retrieve all classes associated with a specific course.
-        
-        Args:
-            course_code (str): The course code to filter classes by
-            
-        Returns:
-            list: A list of dictionaries containing class information
-        """
+    def get_instructor_sessions_today(self, instructor_id):
+        """Get all class sessions for a specific instructor for today."""
         try:
             conn = self.get_connection()
+            conn.row_factory = sqlite3.Row  # Return rows as dictionaries
             cursor = conn.cursor()
             
+            today = datetime.now().strftime("%Y-%m-%d")
+            
             query = """
-                SELECT class_id, class_name 
-                FROM classes 
-                WHERE course_code = ?
-                ORDER BY year, semester, class_name
+                SELECT 
+                    cs.session_id,
+                    cs.date,
+                    cs.start_time,
+                    cs.end_time,
+                    cs.status,
+                    c.class_name,
+                    co.course_name
+                FROM class_sessions cs
+                JOIN classes c ON cs.class_id = c.class_id
+                JOIN courses co ON c.course_code = co.course_code
+                JOIN class_instructors ci ON c.class_id = ci.class_id
+                WHERE ci.instructor_id = ? AND cs.date = ?
+                ORDER BY cs.start_time
             """
             
-            cursor.execute(query, (course_code,))
+            cursor.execute(query, (instructor_id, today))
+            sessions = [dict(row) for row in cursor.fetchall()]
             
-            # Fetch results and convert to list of dictionaries
-            classes = []
-            for row in cursor.fetchall():
-                classes.append({
-                    'class_id': row[0],
-                    'class_name': row[1]
-                })
-                
             conn.close()
-            return classes
+            return sessions
             
         except Exception as e:
-            print(f"Error getting classes by course: {str(e)}")
+            print(f"Error getting instructor's sessions: {e}")
+            return []
+
+    def get_lecturer_attendance_report(self, instructor_id, filters=None):
+        """
+        Get attendance report for a specific lecturer based on filters.
+        """
+        if filters is None:
+            filters = {}
+        try:
+            conn = self.get_connection()
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            query_params = [instructor_id]
+            
+            query = """
+                SELECT 
+                    a.id,
+                    s.student_id,
+                    s.fname,
+                    s.lname,
+                    cs.session_id,
+                    cs.date,
+                    cs.start_time,
+                    c.class_name,
+                    co.course_code,
+                    co.course_name,
+                    a.timestamp,
+                    a.status
+                FROM 
+                    attendance a
+                JOIN 
+                    students s ON a.student_id = s.student_id
+                JOIN 
+                    class_sessions cs ON a.session_id = cs.session_id
+                JOIN 
+                    classes c ON cs.class_id = c.class_id
+                JOIN 
+                    courses co ON c.course_code = co.course_code
+                JOIN 
+                    class_instructors ci ON c.class_id = ci.class_id
+                WHERE 
+                    ci.instructor_id = ?
+            """
+
+            # Add date filters
+            if filters.get('start_date'):
+                query += " AND cs.date >= ?"
+                query_params.append(filters['start_date'])
+            
+            if filters.get('end_date'):
+                query += " AND cs.date <= ?"
+                query_params.append(filters['end_date'])
+
+            # Add class filter
+            if filters.get('class_id'):
+                query += " AND c.class_id = ?"
+                query_params.append(filters['class_id'])
+                
+            query += " ORDER BY cs.date DESC, cs.start_time, s.lname, s.fname"
+            
+            cursor.execute(query, query_params)
+            
+            records = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return records
+
+        except Exception as e:
+            print(f"Database error in get_lecturer_attendance_report: {e}")
             return []

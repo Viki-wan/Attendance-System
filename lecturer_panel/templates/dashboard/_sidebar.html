@@ -1,0 +1,39 @@
+<div class="sidebar bg-light p-3" style="min-height: 100vh;">
+    <ul class="nav flex-column py-3">
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center gap-2" href="{{ url_for('dashboard.index') }}">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+        </li>
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center gap-2" href="#">
+                <i class="fas fa-video"></i> Live Session
+            </a>
+        </li>
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center gap-2" href="#">
+                <i class="fas fa-user-graduate"></i> Students
+            </a>
+        </li>
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center gap-2" href="{{ url_for('reports.view_attendance') }}">
+                <i class="fas fa-chart-bar"></i> Reports
+            </a>
+        </li>
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center gap-2" href="#">
+                <i class="fas fa-calendar-alt"></i> Schedule
+            </a>
+        </li>
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center gap-2" href="#">
+                <i class="fas fa-chart-line"></i> Analytics
+            </a>
+        </li>
+        <li class="nav-item mb-2">
+            <a class="nav-link d-flex align-items-center gap-2" href="{{ url_for('settings.index') }}">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </li>
+    </ul>
+</div> 

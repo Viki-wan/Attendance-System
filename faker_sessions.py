@@ -333,6 +333,66 @@ def generate_attendance_data(conn):
     conn.commit()
     print(f"Created {attendance_count} attendance records")
 
+def add_today_sessions(conn):
+    """Generate class sessions only for today if they don't exist."""
+    cursor = conn.cursor()
+    today = datetime.now().date()
+    today_str = today.strftime("%Y-%m-%d")
+
+    print(f"Checking for sessions on {today_str}...")
+
+    # Get classes for the current semester
+    classes = get_classes_for_current_semester(conn)
+    if not classes:
+        print("No classes found for the current semester.")
+        return
+
+    # Check which classes already have sessions today
+    classes_with_sessions_today = set()
+    cursor.execute("SELECT DISTINCT class_id FROM class_sessions WHERE date = ?", (today_str,))
+    for row in cursor.fetchall():
+        classes_with_sessions_today.add(row[0])
+
+    classes_to_schedule = [c for c in classes if c[0] not in classes_with_sessions_today]
+
+    if not classes_to_schedule:
+        print("All classes for the current semester already have sessions scheduled for today.")
+        return
+
+    print(f"Found {len(classes_to_schedule)} classes to schedule for today.")
+    
+    time_slots = [
+        ("08:00", "10:00"),
+        ("10:15", "12:15"),
+        ("13:00", "15:00"),
+        ("15:15", "17:15"),
+        ("18:00", "20:00"),
+    ]
+
+    sessions_added = 0
+    for class_id, class_name, course_code, year, semester in classes_to_schedule:
+        num_time_slots = random.randint(1, 2)
+        class_time_slots = random.sample(time_slots, num_time_slots)
+
+        for start_time, end_time in class_time_slots:
+            conflicts = check_scheduling_conflicts(conn, course_code, year, semester, today_str, start_time, end_time)
+            if conflicts:
+                continue
+
+            status = determine_status(today, start_time, end_time)
+            try:
+                cursor.execute("""
+                    INSERT INTO class_sessions 
+                    (class_id, date, start_time, end_time, status) 
+                    VALUES (?, ?, ?, ?, ?)
+                """, (class_id, today_str, start_time, end_time, status))
+                sessions_added += 1
+            except sqlite3.IntegrityError:
+                pass
+
+    conn.commit()
+    print(f"Added {sessions_added} new sessions for today.")
+
 def clear_existing_sessions():
     """Clear all existing sessions from the database"""
     try:
@@ -463,18 +523,37 @@ if __name__ == "__main__":
     current_semester = determine_current_semester()
     print(f"Current semester: {current_semester}")
     
-    # Ask how to clear sessions
-    clear_option = input("Clear options:\n1. Clear only current semester sessions\n2. Clear all sessions\n3. Don't clear any sessions\nChoose an option (1-3): ")
-    
-    if clear_option == "1":
-        if not clear_semester_sessions():
+    # Ask about action
+    action_option = input("Action:\n1. Generate sessions for the whole semester\n2. Add sessions for today only\nChoose an option (1-2): ")
+
+    if action_option == '1':
+        # Ask how to clear sessions
+        clear_option = input("Clear options:\n1. Clear only current semester sessions\n2. Clear all sessions\n3. Don't clear any sessions\nChoose an option (1-3): ")
+        
+        if clear_option == "1":
+            if not clear_semester_sessions():
+                sys.exit(1)
+        elif clear_option == "2":
+            if not clear_existing_sessions():
+                sys.exit(1)
+        elif clear_option != "3":
+            print("Invalid option. Exiting.")
             sys.exit(1)
-    elif clear_option == "2":
-        if not clear_existing_sessions():
-            sys.exit(1)
-    elif clear_option != "3":
-        print("Invalid option. Exiting.")
+        
+        # Generate new sessions
+        generate_class_sessions()
+
+    elif action_option == '2':
+        try:
+            db_path = get_database_path()
+            conn = sqlite3.connect(db_path)
+            add_today_sessions(conn)
+            conn.close()
+            print("Done!")
+        except Exception as e:
+            print(f"Error adding today's sessions: {e}")
+            if 'conn' in locals() and conn:
+                conn.close()
+    else:
+        print("Invalid action. Exiting.")
         sys.exit(1)
-    
-    # Generate new sessions
-    generate_class_sessions()
