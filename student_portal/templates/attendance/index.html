@@ -1,0 +1,575 @@
+{% extends 'layout.html' %}
+
+{% block title %}Attendance Records - Student Portal{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css">
+<style>
+    .card {
+        border: none;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+    .badge {
+        font-weight: 500;
+    }
+    .table > :not(caption) > * > * {
+        padding: 1rem 0.75rem;
+    }
+    .pagination {
+        margin-bottom: 0;
+    }
+    .dropdown-item small {
+        font-size: 0.75rem;
+    }
+    
+    /* Action Cards Styling */
+    .action-card {
+        cursor: pointer;
+        border: 1px solid rgba(0,0,0,0.1);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .action-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .action-card.active {
+        border: 2px solid #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    .action-icon {
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Content Sections */
+    .content-section {
+        display: none;
+    }
+    .content-section.active {
+        display: block;
+    }
+
+    /* Chart Container */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+        margin-bottom: 2rem;
+    }
+    
+    /* Download Options */
+    .download-options .btn {
+        min-width: 120px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Attendance Records</h2>
+        <div class="d-flex gap-2">
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-filter me-1"></i> Filter by Class
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item filter-link" href="#" data-class="">All Classes</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    {% for class in classes %}
+                    <li>
+                        <a class="dropdown-item filter-link" href="#" data-class="{{ class.class_id }}">
+                            {{ class.class_name }}
+                            <small class="text-muted d-block">{{ class.course_name }}</small>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-download me-1"></i> Download
+                </button>
+                <ul class="dropdown-menu">
+                    <li><h6 class="dropdown-header">Report Format</h6></li>
+                    <li>
+                        <a class="dropdown-item" href="{{ url_for('attendance.download_report', class=request.args.get('class'), format='excel') }}">
+                            <i class="fas fa-file-excel me-2 text-success"></i> Excel
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{{ url_for('attendance.download_report', class=request.args.get('class'), format='pdf') }}">
+                            <i class="fas fa-file-pdf me-2 text-danger"></i> PDF
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{{ url_for('attendance.download_report', class=request.args.get('class'), format='csv') }}">
+                            <i class="fas fa-file-csv me-2 text-primary"></i> CSV
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">Charts</h6></li>
+                    <li>
+                        <a class="dropdown-item" href="#" id="download-monthly-chart">
+                            <i class="fas fa-chart-bar me-2 text-info"></i> Monthly Trends
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="#" id="download-class-chart">
+                            <i class="fas fa-chart-pie me-2 text-warning"></i> Class-wise Stats
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1">Overall Attendance</h6>
+                            <h2 class="mb-0">{{ "%.1f"|format(overall_stats.attendance_rate|default(0)) }}%</h2>
+                        </div>
+                        <div class="rounded-circle bg-white p-3">
+                            <i class="fas fa-chart-pie text-primary fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1">Classes Attended</h6>
+                            <h2 class="mb-0">{{ overall_stats.present_count|default(0) }}</h2>
+                        </div>
+                        <div class="rounded-circle bg-white p-3">
+                            <i class="fas fa-check-circle text-success fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-danger text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title mb-1">Classes Missed</h6>
+                            <h2 class="mb-0">{{ overall_stats.absent_count|default(0) }}</h2>
+                        </div>
+                        <div class="rounded-circle bg-white p-3">
+                            <i class="fas fa-times-circle text-danger fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card action-card h-100" data-target="overview-section">
+                <div class="card-body text-center">
+                    <div class="action-icon mb-3">
+                        <i class="fas fa-chart-line fa-3x text-primary"></i>
+                    </div>
+                    <h5 class="card-title">Overview</h5>
+                    <p class="card-text text-muted">View your attendance summary</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card action-card h-100" data-target="class-section">
+                <div class="card-body text-center">
+                    <div class="action-icon mb-3">
+                        <i class="fas fa-chalkboard-teacher fa-3x text-success"></i>
+                    </div>
+                    <h5 class="card-title">Class-wise</h5>
+                    <p class="card-text text-muted">Attendance by class</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card action-card h-100" data-target="monthly-section">
+                <div class="card-body text-center">
+                    <div class="action-icon mb-3">
+                        <i class="fas fa-calendar-alt fa-3x text-info"></i>
+                    </div>
+                    <h5 class="card-title">Monthly</h5>
+                    <p class="card-text text-muted">Monthly attendance trends</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card action-card h-100" data-target="records-section">
+                <div class="card-body text-center">
+                    <div class="action-icon mb-3">
+                        <i class="fas fa-list-alt fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Records</h5>
+                    <p class="card-text text-muted">Detailed attendance records</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content Sections -->
+    <div class="content-sections">
+        <!-- Overview Section -->
+        <div id="overview-section" class="content-section active">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Attendance Overview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-3">Attendance Summary</h6>
+                                <div class="progress mb-2" style="height: 25px;">
+                                    <div class="progress-bar bg-success" role="progressbar" 
+                                         data-width="{{ "%.1f"|format(overall_stats.attendance_rate|default(0)) }}"
+                                         aria-valuenow="{{ "%.1f"|format(overall_stats.attendance_rate|default(0)) }}" 
+                                         aria-valuemin="0" aria-valuemax="100">
+                                        {{ "%.1f"|format(overall_stats.attendance_rate|default(0)) }}%
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between text-muted small">
+                                    <span>Present: {{ overall_stats.present_count|default(0) }}</span>
+                                    <span>Absent: {{ overall_stats.absent_count|default(0) }}</span>
+                                    <span>Total: {{ overall_stats.total_sessions|default(0) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <h6 class="text-muted mb-3">Quick Actions</h6>
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('attendance.download_report', class=request.args.get('class')) }}" 
+                                       class="btn btn-outline-primary">
+                                        <i class="fas fa-download me-1"></i> Download Report
+                                    </a>
+                                    <button class="btn btn-outline-secondary" id="view-class-stats">
+                                        <i class="fas fa-chalkboard-teacher me-1"></i> View Class Statistics
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Class-wise Statistics Section -->
+        <div id="class-section" class="content-section">
+            {% if class_stats %}
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h5 class="card-title mb-0">Class-wise Attendance Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="classChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h5 class="card-title mb-0">Class-wise Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Class</th>
+                                            <th>Course</th>
+                                            <th>Total Sessions</th>
+                                            <th>Present</th>
+                                            <th>Attendance Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for stat in class_stats %}
+                                        <tr>
+                                            <td>{{ stat.class_name }}</td>
+                                            <td>{{ stat.course_name }}</td>
+                                            <td>{{ stat.total_sessions }}</td>
+                                            <td>{{ stat.present_count }}</td>
+                                            <td>
+                                                {% if stat.total_sessions > 0 %}
+                                                    {{ "%.1f"|format((stat.present_count / stat.total_sessions) * 100) }}%
+                                                {% else %}
+                                                    0%
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-chalkboard-teacher fa-3x text-muted mb-3"></i>
+                    <h5>No class statistics available</h5>
+                    <p class="text-muted">You don't have any class attendance records yet.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Monthly Statistics Section -->
+        <div id="monthly-section" class="content-section">
+            {% if monthly_stats %}
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h5 class="card-title mb-0">Monthly Attendance Trends</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="monthlyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h5 class="card-title mb-0">Monthly Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Total Sessions</th>
+                                            <th>Present</th>
+                                            <th>Attendance Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for stat in monthly_stats %}
+                                        <tr>
+                                            <td>{{ stat.month }}</td>
+                                            <td>{{ stat.total_sessions }}</td>
+                                            <td>{{ stat.present_count }}</td>
+                                            <td>
+                                                {% if stat.total_sessions > 0 %}
+                                                    {{ "%.1f"|format((stat.present_count / stat.total_sessions) * 100) }}%
+                                                {% else %}
+                                                    0%
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+                    <h5>No monthly statistics available</h5>
+                    <p class="text-muted">You don't have any monthly attendance records yet.</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Attendance Records Section -->
+        <div id="records-section" class="content-section">
+            <div class="card" id="attendance-records">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Attendance Records</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <div class="btn-group" role="group">
+                                {% for class in classes %}
+                                <a href="#" onclick="filterByClass('{{ class.class_id }}')" class="btn btn-outline-primary {% if request.args.get('class') == class.class_id|string %}active{% endif %}">
+                                    {{ class.class_name }}
+                                </a>
+                                {% endfor %}
+                                {% if request.args.get('class') %}
+                                <a href="#" onclick="filterByClass('')" class="btn btn-outline-secondary">Clear Filter</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <form id="dateFilterForm" class="row g-2">
+                                <div class="col-md-5">
+                                    <input type="date" class="form-control" id="from_date" name="from_date" value="{{ from_date }}" onchange="filterByDate()">
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="date" class="form-control" id="to_date" name="to_date" value="{{ to_date }}" onchange="filterByDate()">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="button" class="btn btn-primary" onclick="resetDateFilter()">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Course</th>
+                                    <th>Class</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                    <th>Marked At</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in attendance_records %}
+                                <tr>
+                                    <td>{{ record.date }}</td>
+                                    <td>
+                                        <span class="d-block">{{ record.course_name }}</span>
+                                        <small class="text-muted">{{ record.course_code }}</small>
+                                    </td>
+                                    <td>{{ record.class_name }}</td>
+                                    <td>{{ record.start_time }} - {{ record.end_time }}</td>
+                                    <td>
+                                        <span class="badge {% if record.status == 'Present' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ record.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ record.timestamp }}</small>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-calendar-times fa-2x mb-2"></i>
+                                            <p class="mb-0">No attendance records found</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if pagination.pages > 1 %}
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item {% if pagination.page == 1 %}disabled{% endif %}">
+                                <a class="page-link" href="?page={{ pagination.page - 1 }}{% if request.args.get('class') %}&class={{ request.args.get('class') }}{% endif %}{% if request.args.get('view') %}&view={{ request.args.get('view') }}{% endif %}">Previous</a>
+                            </li>
+                            {% for p in range(1, pagination.pages + 1) %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="?page={{ p }}{% if request.args.get('class') %}&class={{ request.args.get('class') }}{% endif %}{% if request.args.get('view') %}&view={{ request.args.get('view') }}{% endif %}">{{ p }}</a>
+                            </li>
+                            {% endfor %}
+                            <li class="page-item {% if pagination.page == pagination.pages %}disabled{% endif %}">
+                                <a class="page-link" href="?page={{ pagination.page + 1 }}{% if request.args.get('class') %}&class={{ request.args.get('class') }}{% endif %}{% if request.args.get('view') %}&view={{ request.args.get('view') }}{% endif %}">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<!-- Test script to verify loading -->
+<script>
+console.log('Loading attendance page scripts...');
+window.addEventListener('error', function(e) {
+    console.error('Script error:', e);
+});
+</script>
+
+<!-- Custom UI Implementation -->
+<script src="{{ url_for('static', filename='jss/attendance-ui.js') }}"></script>
+<!-- Custom Charts Implementation -->
+<script src="{{ url_for('static', filename='jss/attendance-charts.js') }}"></script>
+
+<!-- Hidden inputs for chart data -->
+<input type="hidden" id="monthlyChartData" value='{{ monthly_stats|tojson }}'>
+<input type="hidden" id="classChartData" value='{{ class_stats|tojson }}'>
+
+<script>
+function filterByClass(classId) {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (classId) {
+        urlParams.set('class', classId);
+    } else {
+        urlParams.delete('class');
+    }
+    // Preserve date range parameters
+    const fromDate = document.getElementById('from_date').value;
+    const toDate = document.getElementById('to_date').value;
+    urlParams.set('from_date', fromDate);
+    urlParams.set('to_date', toDate);
+    
+    window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+}
+
+function filterByDate() {
+    const fromDate = document.getElementById('from_date').value;
+    const toDate = document.getElementById('to_date').value;
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    urlParams.set('from_date', fromDate);
+    urlParams.set('to_date', toDate);
+    
+    // Preserve class filter if exists
+    const classId = urlParams.get('class');
+    if (classId) {
+        urlParams.set('class', classId);
+    }
+    
+    window.location.href = `${window.location.pathname}?${urlParams.toString()}`;
+}
+
+function resetDateFilter() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('from_date').value = today;
+    document.getElementById('to_date').value = today;
+    filterByDate();
+}
+</script>
+{% endblock %} 

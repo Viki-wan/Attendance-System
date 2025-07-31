@@ -30,7 +30,7 @@ fake = Faker()
 def setup_argument_parser():
     """Set up command line argument parsing"""
     parser = argparse.ArgumentParser(description='Generate fake student data for testing')
-    parser.add_argument('-n', '--number', type=int, default=30, 
+    parser.add_argument('-n', '--number', type=int, default=480, 
                         help='Number of fake students to generate (default: 10)')
     parser.add_argument('-d', '--database', default='attendance.db',
                         help='Path to SQLite database file (default: attendance.db)')
@@ -45,13 +45,61 @@ def get_course_codes(db_conn):
     cursor.execute("SELECT course_code FROM courses")
     return [row[0] for row in cursor.fetchall()]
 
-def generate_student_id(course_code):
-    """Generate a student ID in the format S00/00000/YY"""
-    # Use the course code as the first part
-    year = random.randint(17, 25)  # Enrollment year between 2017-2025
+def generate_student_id(course_code, year_of_study):
+    """Generate a student ID in the format S00/00000/YY with appropriate registration year"""
+    import datetime
+    
+    # Current year (last two digits)
+    current_year = datetime.datetime.now().year % 100
+    
+    # Calculate registration year based on desired year of study
+    # For year 1: current year
+    # For year 2: current year - 1
+    # For year 3: current year - 2
+    # For year 4: current year - 3
+    reg_year = current_year - (year_of_study - 1)
+    
+    # Ensure reg_year is between 17 and 25
+    if reg_year < 17:
+        reg_year = 17
+    elif reg_year > 25:
+        reg_year = 25
+    
     serial = random.randint(10000, 99999)  # 5-digit serial number
     
-    return f"{course_code}/{serial}/{year:02d}"
+    return f"{course_code}/{serial}/{reg_year:02d}"
+
+def determine_current_semester(year_of_study, student_id):
+    """Determine current semester based on current date and student's year"""
+    import datetime
+    
+    today = datetime.date.today()
+    month = today.month
+    
+    # Extract registration year from ID
+    reg_year = None
+    match = re.match(r"^S\d{2}/\d{5}/(\d{2})$", student_id)
+    if match:
+        reg_year = int(match.group(1))
+    
+    # Determine base semester from month
+    if 9 <= month <= 12:
+        # First semester (September to December)
+        base_semester = 1
+    elif 1 <= month <= 4:
+        # Second semester (January to April)
+        base_semester = 2
+    else:
+        # Default to first semester during break months
+        base_semester = 1
+    
+    # Special adjustments for specific cohorts
+    if reg_year == 24:  # 2024 cohort
+        # Currently in second semester of first year
+        if year_of_study == 1:
+            return 2
+    
+    return base_semester
 
 def compute_phash(image_path, face_only_path=None):
     """Compute perceptual hash prioritizing face if available"""
@@ -245,7 +293,7 @@ def generate_fake_students(db_conn, num_students):
             print("Error: No courses found in database")
             return
             
-        # Get any existing student IDs to avoid duplicates
+        # Get existing student IDs to avoid duplicates
         existing_student_ids = get_existing_student_ids(db_conn)
         
         # Track already used images to avoid duplicates
@@ -254,117 +302,157 @@ def generate_fake_students(db_conn, num_students):
         # Track success
         success_count = 0
         
-        # Get semesters
-        semesters = ["1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "4.1", "4.2"]
+        # Calculate how many students to assign to each year
+        students_per_year = num_students // 4
+        remaining = num_students % 4
         
-        for i in range(num_students):
-            try:
-                print(f"Generating student {i+1}/{num_students}...")
-                
-                # Get random image that hasn't been used
-                available_images = get_available_images(used_images)
-                if not available_images:
-                    print("Error: No available sample face images found")
-                    break
+        # Distribution of students by year
+        year_distribution = [students_per_year] * 4
+        
+        # Add remaining students to years starting from year 1
+        for i in range(remaining):
+            year_distribution[i] += 1
+            
+        print(f"Student distribution by year: Year 1: {year_distribution[0]}, Year 2: {year_distribution[1]}, Year 3: {year_distribution[2]}, Year 4: {year_distribution[3]}")
+        
+        # Generate students for each year
+        current_student = 0
+        
+        for year_of_study in range(1, 5):
+            students_for_this_year = year_distribution[year_of_study-1]
+            
+            print(f"Generating {students_for_this_year} students for Year {year_of_study}...")
+            
+            for i in range(students_for_this_year):
+                try:
+                    current_student += 1
+                    print(f"Generating student {current_student}/{num_students} (Year {year_of_study})...")
                     
-                sample_image_path = random.choice(available_images)
-                used_images.append(sample_image_path)
-                
-                # Generate basic info
-                student_name = fake.name()
-                course_code = random.choice(course_codes)
-                
-                # Keep generating student IDs until we get a unique one
-                while True:
-                    student_id = generate_student_id(course_code)
-                    if student_id not in existing_student_ids:
-                        existing_student_ids.append(student_id)
+                    # Get random image that hasn't been used
+                    available_images = get_available_images(used_images)
+                    if not available_images:
+                        print("Error: No available sample face images found")
                         break
-                
-                sanitized_id = student_id.replace('/', '_')
-                
-                # Prepare image files
-                final_image_path = os.path.join(IMAGE_DIR, f"{sanitized_id}.jpg")
-                face_image_path = os.path.join(IMAGE_DIR, f"{sanitized_id}_face.jpg")
-                encoding_path = os.path.join(ENCODING_DIR, f"student_{sanitized_id}_encodings.pkl")
-                
-                # Copy and process sample image
-                shutil.copy2(sample_image_path, final_image_path)
-                
-                # Extract face
-                extract_face(final_image_path, face_image_path)
-                
-                # Compute hash
-                image_hash, used_face = compute_phash(final_image_path, face_image_path)
-                
-                # Check for duplicate hash
-                if is_duplicate_hash(db_conn, image_hash):
-                    print(f"Duplicate hash detected for {student_id}. Skipping...")
-                    # Clean up files
-                    if os.path.exists(final_image_path):
-                        os.remove(final_image_path)
-                    if os.path.exists(face_image_path):
-                        os.remove(face_image_path)
-                    continue
-                
-                # Generate face encodings
-                image = face_recognition.load_image_file(final_image_path)
-                augmented_encodings = generate_augmented_encodings(image)
-                
-                if not augmented_encodings:
-                    print(f"No face detected in {final_image_path}. Skipping...")
-                    continue
-                
-                # Save encodings to file
-                with open(encoding_path, 'wb') as f:
-                    pickle.dump(augmented_encodings, f)
+                        
+                    sample_image_path = random.choice(available_images)
+                    used_images.append(sample_image_path)
                     
-                # Convert to blob for database
-                encoding_blob = pickle.dumps(augmented_encodings)
-                
-                # Additional student details
-                year_of_study = random.randint(1, 4)
-                semester = random.choice(semesters)
-                email = fake.email()
-                phone = f"07{random.randint(10000000, 99999999)}"  # Format: 07XXXXXXXX
-                
-                # Insert student into database
-                cursor.execute("""
-                    INSERT INTO students (
-                        name, student_id, image_path, image_hash, face_encoding, 
-                        face_only_path, course, year_of_study, email, phone, 
-                        current_semester, face_encoding_path
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    student_name, student_id, final_image_path, image_hash, encoding_blob, 
-                    face_image_path, course_code, year_of_study, email, phone, 
-                    semester, encoding_path
-                ))
-                
-                # Insert student course enrollment
-                cursor.execute("""
-                    INSERT INTO student_courses 
-                    (student_id, course_code, semester, enrollment_date)
-                    VALUES (?, ?, ?, date('now'))
-                """, (student_id, course_code, semester))
-                
-                # Log activity
-                cursor.execute("""
-                    INSERT INTO activity_log 
-                    (user_id, activity_type, timestamp)
-                    VALUES (?, ?, datetime('now', 'localtime'))
-                """, ("faker_script", f"Student registered: {student_id}"))
-                
-                db_conn.commit()
-                success_count += 1
-                print(f"Successfully created student: {student_name} ({student_id})")
-                
-            except Exception as e:
-                print(f"Error generating student {i+1}: {e}")
-                db_conn.rollback()
-                
+                    # Generate basic info - split name into fname and lname
+                    full_name = fake.name()
+                    name_parts = full_name.split()
+                    
+                    # Handle different name formats
+                    if len(name_parts) >= 2:
+                        fname = name_parts[0]
+                        lname = " ".join(name_parts[1:])
+                    else:
+                        fname = name_parts[0]
+                        lname = ""
+                    
+                    # Select random course
+                    course_code = random.choice(course_codes)
+                    
+                    # Generate unique student ID based on assigned year of study
+                    while True:
+                        student_id = generate_student_id(course_code, year_of_study)
+                        if student_id not in existing_student_ids:
+                            existing_student_ids.append(student_id)
+                            break
+                    
+                    # Determine appropriate semester
+                    semester_num = determine_current_semester(year_of_study, student_id)
+                    
+                    # Format semester string (e.g. "2.1")
+                    semester = f"{year_of_study}.{semester_num}"
+                    
+                    # Create sanitized ID for filenames
+                    sanitized_id = student_id.replace('/', '_')
+                    
+                    # Prepare image file paths
+                    final_image_path = os.path.join(IMAGE_DIR, f"{sanitized_id}.jpg")
+                    face_image_path = os.path.join(IMAGE_DIR, f"{sanitized_id}_face.jpg")
+                    encoding_path = os.path.join(ENCODING_DIR, f"student_{sanitized_id}_encodings.pkl")
+                    
+                    # Copy and process sample image
+                    shutil.copy2(sample_image_path, final_image_path)
+                    
+                    # Extract face
+                    extract_face(final_image_path, face_image_path)
+                    
+                    # Compute hash
+                    image_hash, used_face = compute_phash(final_image_path, face_image_path)
+                    
+                    # Check for duplicate hash
+                    if is_duplicate_hash(db_conn, image_hash):
+                        print(f"Duplicate hash detected for {student_id}. Skipping...")
+                        # Clean up files
+                        if os.path.exists(final_image_path):
+                            os.remove(final_image_path)
+                        if os.path.exists(face_image_path):
+                            os.remove(face_image_path)
+                        continue
+                    
+                    # Generate face encodings
+                    image = face_recognition.load_image_file(final_image_path)
+                    augmented_encodings = generate_augmented_encodings(image)
+                    
+                    if not augmented_encodings:
+                        print(f"No face detected in {final_image_path}. Skipping...")
+                        continue
+                    
+                    # Save encodings to file
+                    with open(encoding_path, 'wb') as f:
+                        pickle.dump(augmented_encodings, f)
+                        
+                    # Convert to blob for database
+                    encoding_blob = pickle.dumps(augmented_encodings)
+                    
+                    # Generate additional details
+                    email = fake.email()
+                    phone = f"07{random.randint(10000000, 99999999)}"  # Format: 07XXXXXXXX
+                    
+                    # Insert student into database
+                    cursor.execute("""
+                        INSERT INTO students (
+                            fname, lname, student_id, image_path, image_hash, face_encoding, 
+                            face_only_path, course, year_of_study, email, phone, 
+                            current_semester, face_encoding_path
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        fname, lname, student_id, final_image_path, image_hash, encoding_blob, 
+                        face_image_path, course_code, year_of_study, email, phone, 
+                        semester, encoding_path
+                    ))
+                    
+                    # Insert student course enrollment
+                    cursor.execute("""
+                        INSERT INTO student_courses 
+                        (student_id, course_code, semester, enrollment_date)
+                        VALUES (?, ?, ?, date('now'))
+                    """, (student_id, course_code, semester))
+                    
+                    # Log activity
+                    cursor.execute("""
+                        INSERT INTO activity_log 
+                        (user_id, activity_type, timestamp)
+                        VALUES (?, ?, datetime('now', 'localtime'))
+                    """, ("faker_script", f"Student registered: {student_id}"))
+                    
+                    db_conn.commit()
+                    success_count += 1
+                    print(f"Successfully created student: {fname} {lname} ({student_id}) - Year {year_of_study}, Semester {semester}")
+                    
+                except Exception as e:
+                    print(f"Error generating student {current_student}: {e}")
+                    db_conn.rollback()
+                    
         print(f"Generation complete. Successfully created {success_count} out of {num_students} students.")
+        print(f"Year distribution of created students:")
+        for year in range(1, 5):
+            cursor.execute("SELECT COUNT(*) FROM students WHERE year_of_study = ?", (year,))
+            count = cursor.fetchone()[0]
+            print(f"Year {year}: {count} students")
         
     except sqlite3.Error as e:
         print(f"Database error: {e}")

@@ -167,3 +167,44 @@ class DashboardStatsManager:
     def get_current_date():
         """Get current date formatted for display"""
         return datetime.datetime.now().strftime("Today: %B %d, %Y")
+    
+    @staticmethod
+    def get_student_stats():
+        try:
+            conn = sqlite3.connect(DATABASE_PATH)
+            cursor = conn.cursor()
+            
+            # Get total students count
+            cursor.execute("SELECT COUNT(*) FROM students")
+            total = cursor.fetchone()[0]
+            
+            # Get counts by year
+            cursor.execute("""
+                SELECT year_of_study, COUNT(*) 
+                FROM students 
+                GROUP BY year_of_study 
+                ORDER BY year_of_study
+            """)
+            year_counts = cursor.fetchall()
+            
+            conn.close()
+            
+            # Format the stats
+            stats_text = f"{total} Total Students"
+            
+            # Add year breakdown if there are students
+            if total > 0 and year_counts:
+                stats_text += " ("
+                year_parts = []
+                for year, count in year_counts:
+                    if year:  # Check if not None
+                        year_parts.append(f"Year {year}: {count}")
+                    else:
+                        year_parts.append("Unassigned: {count}")
+                stats_text += ", ".join(year_parts)
+                stats_text += ")"
+                
+            return stats_text
+            
+        except sqlite3.Error:
+            return "Error loading student stats"

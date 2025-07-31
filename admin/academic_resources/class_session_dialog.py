@@ -902,11 +902,54 @@ class ClassSessionDialog(QDialog):
             conn = sqlite3.connect(DATABASE_PATH)
             cursor = conn.cursor()
             
+            # Get course and semester information for the selected class
+            cursor.execute("""
+                SELECT c.course_code, c.year, c.semester
+                FROM classes c
+                WHERE c.class_id = ?
+            """, (class_id,))
+            
+            class_info = cursor.fetchone()
+            
+            if not class_info:
+                saving_msg.close()
+                QMessageBox.warning(self, "Error", "Could not retrieve class information")
+                conn.close()
+                return
+                
+            course_code, year, semester = class_info
+            
             if self.is_edit_mode:
                 # Update existing session
                 date_str = self.date_picker.date().toString("yyyy-MM-dd")
                 start_time = self.start_time_picker.time().toString("HH:mm")
                 end_time = self.end_time_picker.time().toString("HH:mm")
+                
+                # Check for scheduling conflicts with other classes in same course/semester
+                # Exclude the current session from the conflict check
+                cursor.execute("""
+                    SELECT cs.session_id, c.class_name, cs.start_time, cs.end_time
+                    FROM class_sessions cs
+                    JOIN classes c ON cs.class_id = c.class_id
+                    WHERE c.course_code = ? AND c.year = ? AND c.semester = ?
+                    AND cs.date = ?
+                    AND cs.session_id != ?
+                    AND ((cs.start_time < ? AND cs.end_time > ?) OR
+                        (cs.start_time >= ? AND cs.start_time < ?) OR
+                        (cs.end_time > ? AND cs.end_time <= ?))
+                """, (course_code, year, semester, date_str, self.session_id, 
+                    end_time, start_time, start_time, end_time, start_time, end_time))
+                
+                conflicts = cursor.fetchall()
+                
+                if conflicts:
+                    saving_msg.close()
+                    conflict_list = "\n".join([f"- {cls_name} ({s_time} - {e_time})" 
+                                            for _, cls_name, s_time, e_time in conflicts])
+                    QMessageBox.warning(self, "Scheduling Conflict", 
+                                    f"There are scheduling conflicts with other classes in the same course and semester for {date_str}:\n\n{conflict_list}")
+                    conn.close()
+                    return
                 
                 # Determine status automatically
                 status = self.determine_status(self.date_picker.date(), 
@@ -935,8 +978,54 @@ class ClassSessionDialog(QDialog):
                     conn.close()
                     return
                 
-                # Insert sessions
+                # Check for conflicts for each session
+                sessions_to_create = []
+                conflict_dates = []
+                
                 for date, start_time, end_time in sessions:
+                    date_str = date.toString("yyyy-MM-dd")
+                    
+                    # Check for scheduling conflicts with other classes in same course/semester
+                    cursor.execute("""
+                        SELECT cs.session_id, c.class_name, cs.start_time, cs.end_time
+                        FROM class_sessions cs
+                        JOIN classes c ON cs.class_id = c.class_id
+                        WHERE c.course_code = ? AND c.year = ? AND c.semester = ?
+                        AND cs.date = ?
+                        AND ((cs.start_time < ? AND cs.end_time > ?) OR
+                            (cs.start_time >= ? AND cs.start_time < ?) OR
+                            (cs.end_time > ? AND cs.end_time <= ?))
+                    """, (course_code, year, semester, date_str, 
+                        end_time, start_time, start_time, end_time, start_time, end_time))
+                    
+                    conflicts = cursor.fetchall()
+                    
+                    if conflicts:
+                        conflict_list = ", ".join([f"{cls_name}" for _, cls_name, _, _ in conflicts])
+                        conflict_dates.append(f"{date_str} ({conflict_list})")
+                    else:
+                        sessions_to_create.append((date, start_time, end_time))
+                
+                if conflict_dates:
+                    saving_msg.close()
+                    if len(conflict_dates) == len(sessions):
+                        QMessageBox.warning(self, "Scheduling Conflict", 
+                                        f"All sessions have conflicts with other classes in the same course and semester. No sessions were created.\n\nConflicts on:\n{chr(10).join(conflict_dates[:5])}" + 
+                                        (f"\n...and {len(conflict_dates)-5} more dates" if len(conflict_dates) > 5 else ""))
+                        conn.close()
+                        return
+                    else:
+                        result = QMessageBox.question(self, "Partial Scheduling Conflicts", 
+                                                f"{len(conflict_dates)} out of {len(sessions)} sessions have conflicts with other classes in the same course and semester.\n\nConflicts on:\n{chr(10).join(conflict_dates[:5])}" + 
+                                                (f"\n...and {len(conflict_dates)-5} more dates" if len(conflict_dates) > 5 else "") +
+                                                f"\n\nDo you want to create the {len(sessions_to_create)} non-conflicting sessions?",
+                                                QMessageBox.Yes | QMessageBox.No)
+                        if result == QMessageBox.No:
+                            conn.close()
+                            return
+                
+                # Insert non-conflicting sessions
+                for date, start_time, end_time in sessions_to_create:
                     date_str = date.toString("yyyy-MM-dd")
                     
                     # Determine status automatically for each session
@@ -950,10 +1039,18 @@ class ClassSessionDialog(QDialog):
                         VALUES (?, ?, ?, ?, ?)
                     """, (class_id, date_str, start_time, end_time, status))
                     
-                sessions_created = len(sessions)
+                sessions_created = len(sessions_to_create)
+                
+                if sessions_created == 0:
+                    saving_msg.close()
+                    QMessageBox.warning(self, "Error", "No sessions were created due to conflicts")
+                    conn.close()
+                    return
+                    
                 message = f"{sessions_created} session(s) created successfully"
+                if len(conflict_dates) > 0:
+                    message += f" ({len(conflict_dates)} skipped due to conflicts)"
 
-            
             conn.commit()
             conn.close()
             

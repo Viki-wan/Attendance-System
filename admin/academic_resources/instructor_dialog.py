@@ -3,9 +3,10 @@ from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                            QLineEdit, QPushButton, QLabel, QMessageBox, 
                            QListWidget, QApplication, QListWidgetItem, QComboBox, QGroupBox,
                            QScrollArea, QWidget, QSplitter, QFrame)
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QIcon, QFont
 from config.utils_constants import DATABASE_PATH
+import re
 
 class InstructorDialog(QDialog):
     def __init__(self, parent=None, instructor_id=None):
@@ -29,6 +30,8 @@ class InstructorDialog(QDialog):
         
         if self.is_edit_mode:
             self.load_instructor_data()
+        
+        self.name_edit.installEventFilter(self)
     
     def setup_ui(self):
         """Set up the dialog UI elements"""
@@ -247,6 +250,15 @@ class InstructorDialog(QDialog):
         
         self.setLayout(main_layout)
     
+    def eventFilter(self, obj, event):
+        if obj == self.name_edit and event.type() == QEvent.KeyPress:
+            key = event.text()
+            # Allow only letters, spaces, hyphens, apostrophes, and navigation keys
+            allowed_keys = (Qt.Key_Backspace, Qt.Key_Delete, Qt.Key_Left, Qt.Key_Right, Qt.Key_Tab, Qt.Key_Home, Qt.Key_End)
+            if key and not re.match(r"[A-Za-z\s\-']", key) and event.key() not in allowed_keys:
+                return True  # Ignore the event
+        return super().eventFilter(obj, event)
+    
     # Keep all other methods unchanged
     def load_available_courses(self):
         """Load available courses for the combo box"""
@@ -361,16 +373,43 @@ class InstructorDialog(QDialog):
     
     def validate_input(self):
         """Validate user input"""
-        if not self.name_edit.text().strip():
+        name = self.name_edit.text().strip()
+        phone = self.phone_edit.text().strip()
+        email = self.email_edit.text().strip()
+        assigned_courses_count = self.assigned_courses_list.count()
+
+        # Name validation
+        if not name:
             QMessageBox.warning(self, "Input Error", "Instructor name is required")
             self.name_edit.setFocus()
             return False
-        
-        if not self.phone_edit.text().strip():
+        if not re.match(r"^[A-Za-z\s\-']+$", name):
+            QMessageBox.warning(self, "Input Error", "Name should only contain letters, spaces, hyphens, or apostrophes")
+            self.name_edit.setFocus()
+            return False
+
+        # Phone validation (Kenyan format: 07XXXXXXXX)
+        if not phone:
             QMessageBox.warning(self, "Input Error", "Phone number is required")
             self.phone_edit.setFocus()
             return False
-        
+        if not re.match(r"^07\d{8}$", phone):
+            QMessageBox.warning(self, "Input Error", "Phone number must be in the format 07XXXXXXXX (Kenyan mobile number)")
+            self.phone_edit.setFocus()
+            return False
+
+        # Email validation (if provided)
+        if email:
+            if not re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", email):
+                QMessageBox.warning(self, "Input Error", "Please enter a valid email address")
+                self.email_edit.setFocus()
+                return False
+
+        # At least one course assigned
+        if assigned_courses_count == 0:
+            QMessageBox.warning(self, "Input Error", "At least one course must be assigned to the instructor")
+            return False
+
         return True
     
     def save_instructor(self):

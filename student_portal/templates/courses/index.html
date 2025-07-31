@@ -1,0 +1,60 @@
+{% extends 'layout.html' %}
+
+{% block title %}My Classes - Student Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="mb-4">
+        <h2 class="mb-0">My Classes</h2>
+    </div>
+
+    <!-- Classes List -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Class</th>
+                            <th>Course Code</th>
+                            <th>Course Name</th>
+                            <th>Semester</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for class in classes %}
+                        <tr>
+                            <td><strong>{{ class.class_name }}</strong></td>
+                            <td>{{ class.course_code }}</td>
+                            <td>{{ class.course_name }}</td>
+                            <td><span class="badge bg-primary">{{ class.semester }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="fas fa-book fa-2x mb-2"></i>
+                                    <p class="mb-0">You are not enrolled in any classes yet.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table > :not(caption) > * > * {
+        padding: 1rem 0.75rem;
+    }
+    .badge {
+        font-weight: 500;
+    }
+</style>
+{% endblock %} 

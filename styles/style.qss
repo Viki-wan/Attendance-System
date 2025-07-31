@@ -59,7 +59,7 @@ QWidget#Sidebar {
 QWidget#Sidebar QPushButton {
     background-color: transparent;
     color: #475569;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 500;
     border: none;
     padding: 16px 18px;

@@ -90,6 +90,7 @@ class AdminDashboard(QMainWindow):
         # Update each window's stylesheet
         for window in self.windows.values():
             window.setStyleSheet(QApplication.instance().styleSheet())
+            window.installEventFilter(self)
 
     def connect_sidebar_buttons(self):
         """Connect sidebar buttons to window switching functionality"""
@@ -125,9 +126,12 @@ class AdminDashboard(QMainWindow):
 
     def eventFilter(self, obj, event):
         """Detect mouse movement or keyboard activity to reset inactivity timer."""
-        if event.type() in [QEvent.MouseMove, QEvent.KeyPress, QEvent.Wheel]:
+        if event.type() in [QEvent.MouseMove, QEvent.KeyPress, QEvent.Wheel, 
+                            QEvent.MouseButtonPress, QEvent.MouseButtonRelease]:
             self.reset_activity_timer()
         return super().eventFilter(obj, event)
+    
+
 
     def check_inactivity(self):
         """Automatically logs out the admin after inactivity."""

@@ -1,230 +1,447 @@
 import sys
 import cv2
-import sqlite3
 import numpy as np
 import face_recognition
-import hashlib
-import imagehash
-from PIL import Image
-import pickle
-import uuid
-import time as system_time
-from datetime import datetime
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QDialog, QApplication, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QProgressBar, QMessageBox
-from PyQt5.QtCore import Qt, QTimer
+from datetime import datetime, timedelta
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QApplication, QLabel, 
+                            QPushButton, QTableWidget, QTableWidgetItem, 
+                            QProgressBar, QMessageBox, QComboBox, QHBoxLayout,
+                            QHeaderView, QDialog, QTextEdit, QFileDialog)
+from PyQt5.QtCore import Qt, QTimer, QDate
+ 
+from PyQt5.QtPrintSupport import QPrinter
+from PyQt5.QtGui import QColor, QTextDocument
+
+from admin.face_recognition_service import FaceRecognitionService
+from admin.db_service import DatabaseService
+from admin.session_service import SessionService
+from admin.view_attendance import ViewAttendanceWindow
 from config.utils_constants import *
-from admin.class_session_dialog import ClassSessionDialog
-from admin.settings_window import SettingsWindow
-from config.utils import enhance_image
-
-
-def compute_phash(image_path):
-        image = Image.open(image_path).convert("L").resize((64, 64))  # Convert to grayscale & resize
-        return str(imagehash.phash(image))  # Returns a perceptual hash
-
 
 class StartAttendanceWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("📡 Start Attendance")
-        self.setGeometry(300, 200, 750, 550)
-
+        self.setGeometry(300, 200, 800, 600)
         self.setObjectName("StartAttendanceWindow")
+        self.setStyleSheet(QApplication.instance().styleSheet())
 
-        self.last_unknown_save_time = 0
-    
-        self.setStyleSheet(QApplication.instance().styleSheet())  # ✅ Inherit global QSS
-
+        # Initialize services
+        self.db_service = DatabaseService()
+        self.session_service = SessionService(self.db_service)
+        self.settings = self.db_service.load_settings()
+        self.face_service = FaceRecognitionService(self.settings, self.db_service)
+        
+        # Session tracking variables
         self.current_session = None
         self.session_id = None
+        self.class_id = None
+        self.attendance_running = False
+        self.last_unknown_save_time = 0
+        
+        # Setup UI
+        self.init_ui()
+        
+        # Load face data
+        self.refresh_known_faces()
+        
+        # Track recognized students
+        self.recognized_students = {}
+        self.match_counter = {}
+        self.unknown_counter = 0
+        self.expected_students = []
+        self.cap = None
 
-         # ✅ Load settings before applying them
-        self.settings = self.load_settings()  
-        self.apply_saved_settings()
-        # ✅ Layout
+    def init_ui(self):
         layout = QVBoxLayout()
-
-        # ✅ Status Label
+        
+        # Status label
         self.status_label = QLabel("🔄 System Ready...", self)
         self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setStyleSheet("font-size: 14pt; font-weight: bold; margin: 10px 0;")
         layout.addWidget(self.status_label)
-
-        # ✅ Session Info Label
+        
+        # Session selection combo box
+        session_header = QLabel("Select Today's Session:", self)
+        session_header.setStyleSheet("font-size: 12pt; font-weight: bold;")
+        layout.addWidget(session_header)
+        
+        self.session_combo = QComboBox(self)
+        self.session_combo.setMinimumHeight(30)
+        self.session_combo.currentIndexChanged.connect(self.session_selected)
+        layout.addWidget(self.session_combo)
+        
+        # Session info display box
         self.session_info_label = QLabel("No active session", self)
         self.session_info_label.setAlignment(Qt.AlignCenter)
+        self.session_info_label.setStyleSheet("font-size: 12pt; border: 1px solid #ccc; padding: 5px; background-color: #f0f0f0; border-radius: 5px;")
         layout.addWidget(self.session_info_label)
-
-        # ✅ Progress Bar
+        
+        # Progress bar
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
+        self.progress_bar.setFormat("%v%")
+        self.progress_bar.setStyleSheet("QProgressBar {border: 1px solid grey; border-radius: 2px; text-align: center;} QProgressBar::chunk {background-color: #3add36; width: 1px;}")
         layout.addWidget(self.progress_bar)
-
-        # ✅ Attendance Table
+        
+        # Attendance table
+        table_header = QLabel("Expected Students:", self)
+        table_header.setStyleSheet("font-size: 12pt; font-weight: bold; margin-top: 10px;")
+        layout.addWidget(table_header)
+        
         self.attendance_table = QTableWidget(self)
         self.attendance_table.setColumnCount(3)
         self.attendance_table.setHorizontalHeaderLabels(["Student ID", "Name", "Status"])
+        self.attendance_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.attendance_table.setStyleSheet("QTableWidget {border: 1px solid #ccc;}")
         layout.addWidget(self.attendance_table)
-
-        # ✅ Start & Stop Buttons
+        
+        # Button layout
+        button_layout = QHBoxLayout()
+        
+        self.refresh_button = QPushButton("🔄 Refresh Sessions")
+        self.refresh_button.clicked.connect(self.load_today_sessions)
+        self.refresh_button.setStyleSheet("QPushButton {background-color: #f0f0f0; padding: 8px;}")
+        button_layout.addWidget(self.refresh_button)
+        
         self.start_button = QPushButton("▶ Start Attendance")
-        self.start_button.clicked.connect(self.initiate_attendance_session)
-        layout.addWidget(self.start_button)
-
+        self.start_button.clicked.connect(self.start_attendance)
+        self.start_button.setStyleSheet("QPushButton {background-color: #4CAF50; color: white; font-weight: bold; padding: 8px;}")
+        button_layout.addWidget(self.start_button)
+        
         self.stop_button = QPushButton("⏹ Stop Attendance")
         self.stop_button.setEnabled(False)
         self.stop_button.clicked.connect(self.stop_attendance)
-        layout.addWidget(self.stop_button)
-
+        self.stop_button.setStyleSheet("QPushButton {background-color: #f44336; color: white; font-weight: bold; padding: 8px;}")
+        button_layout.addWidget(self.stop_button)
+        
+        layout.addLayout(button_layout)
+        
         self.setLayout(layout)
-
-        # ✅ Timer for Processing
+        
+        # Timer for processing
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_progress)
+        
+        # Load today's sessions
+        self.load_today_sessions()
+        
+        # Check for auto-start setting
+        self.check_auto_start()
 
-        # ✅ Load Known Faces
-        self.known_faces, self.student_ids = self.load_known_faces()
+    def load_today_sessions(self):
+        """Load today's sessions into the combo box"""
+        self.session_combo.clear()
+        self.attendance_table.setRowCount(0)
+        
+        # Use the session service to get sessions
+        sessions = self.session_service.get_today_sessions()
+        if not sessions:
+            self.session_combo.addItem("No sessions scheduled for today")
+            self.start_button.setEnabled(False)
+            return
+            
+        # Add a default selection prompt
+        self.session_combo.addItem("-- Select a session --")
+        
+        # Get current and upcoming sessions
+        current_sessions, upcoming_sessions = self.session_service.filter_sessions_by_time(sessions)
+        
+        # Combine current and upcoming sessions
+        active_sessions = current_sessions + upcoming_sessions
+        
+        # Filter out completed sessions
+        active_sessions = [s for s in active_sessions if s.get('status') != 'completed']
+        
+        # If no active sessions, show message
+        if not active_sessions:
+            self.session_combo.addItem("No active or upcoming sessions")
+            self.start_button.setEnabled(False)
+            return
+        
+        # Add filtered sessions to combo box with improved display format
+        for session in active_sessions:
+            session_id = session['session_id']
+            class_id = session['class_id']
+            course_code = session.get('course_code', 'Unknown')
+            class_name = session.get('class_name', 'Unknown Class')
+            start_time = session['start_time']
+            end_time = session['end_time'] if session['end_time'] else "End"
+            
+            # Format display text as: class_id, course name, time
+            display_text = f"{class_id} - {course_code}: {class_name} | {start_time}"
+            
+            # Add indicator if session is in progress
+            if session in current_sessions:
+                display_text += " [IN PROGRESS]"
+            
+            self.session_combo.addItem(display_text, session)
+        
+        # If there's exactly one current session, select it automatically
+        if len(current_sessions) == 1:
+            for i in range(self.session_combo.count()):
+                if i > 0:  # Skip the "Select a session" item
+                    session_data = self.session_combo.itemData(i)
+                    if session_data and session_data['session_id'] == current_sessions[0]['session_id']:
+                        self.session_combo.setCurrentIndex(i)
+                        break
+        
+        # Enable start button if there are active sessions
+        self.start_button.setEnabled(self.session_combo.count() > 1)
+        
+    def check_auto_start(self):
+        """Check if attendance should auto-start based on settings"""
+        if self.settings.get("auto_start", "0") == "1":
+            # Try to find an active session first (by database status)
+            active_session = self.session_service.get_current_active_session()
+            
+            if active_session:
+                # Find and select this session in the combo box
+                for i in range(self.session_combo.count()):
+                    if i > 0:  # Skip the "Select a session" item
+                        session_data = self.session_combo.itemData(i)
+                        if session_data and session_data['session_id'] == active_session['session_id']:
+                            self.session_combo.setCurrentIndex(i)
+                            # Only auto-start if the session is eligible
+                            if self.is_session_eligible_for_attendance():
+                                QTimer.singleShot(1000, self.start_attendance)
+                            break
+            else:
+                # If no active session by status, check by time
+                sessions = self.session_service.get_today_sessions()
+                current_sessions, upcoming_sessions = self.session_service.filter_sessions_by_time(sessions)
+                
+                # Auto-start if there's exactly one current session
+                if len(current_sessions) == 1:
+                    # Find and select this session in the combo box
+                    for i in range(self.session_combo.count()):
+                        if i > 0:  # Skip the "Select a session" item
+                            session_data = self.session_combo.itemData(i)
+                            if session_data and session_data['session_id'] == current_sessions[0]['session_id']:
+                                self.session_combo.setCurrentIndex(i)
+                                QTimer.singleShot(1000, self.start_attendance)
+                                break
+                # If no current sessions, check upcoming ones
+                elif not current_sessions and len(upcoming_sessions) == 1:
+                    # Find and select this session in the combo box
+                    for i in range(self.session_combo.count()):
+                        if i > 0:  # Skip the "Select a session" item
+                            session_data = self.session_combo.itemData(i)
+                            if session_data and session_data['session_id'] == upcoming_sessions[0]['session_id']:
+                                self.session_combo.setCurrentIndex(i)
+                                QTimer.singleShot(1000, self.start_attendance)
+                                break
 
-        # ✅ Tracking Variables
-        self.recognized_students = {}
-        self.progress = 0
-        self.match_counter = {}
-        self.unknown_counter = 0
-        self.cap = None
-        self.attendance_running = False
-
-    def refresh_known_faces(self):
-        """Reload known faces and update cache."""
-        self.known_faces, self.student_ids = self.load_known_faces()
-
-
-    def get_name(self, student_id):
-        """Fetch student name from the database using student_id."""
-        conn = sqlite3.connect("attendance.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM students WHERE student_id = ?", (student_id,))
-        result = cursor.fetchone()
-        conn.close()
-
-        return result[0] if result else "Unknown"
+    def session_selected(self):
+        """Handle session selection from combo box"""
+        self.update_session_display()
+        
+        # Load expected students for this session if valid
+        if self.class_id:
+            self.load_expected_students()
     
-    def load_application_data(self):
-        """Load application settings and known faces."""
-        self.settings = self.load_settings()
-        self.known_faces, self.student_ids = self.load_known_faces()
-        self.apply_saved_settings()
-
-    def initiate_attendance_session(self):
-        """Begin attendance process with session selection."""
-        # Launch class session dialog
-        session_dialog = ClassSessionDialog(self)
-        if session_dialog.exec_() == QDialog.Accepted:
-            # Retrieve selected session details
-            self.current_session = session_dialog.get_selected_session()
-            
-            # Validate session details
-            if not self.validate_session():
-                return
-            
-            # Create session record
-            self.session_id = self.create_session_record()
-            if not self.session_id:
-                QMessageBox.warning(self, "Session Error", "Failed to create session record")
-                return
-            
-            # Update session info display
-            self.update_session_display()
-            
-            # Start actual attendance process
-            self.start_attendance()
-
     def update_session_display(self):
-        """Update the session information on the UI."""
-        if self.current_session:
-            session_info = (f"Session: {self.current_session['course_name']} - "
-                        f"{self.current_session['class_name']} with "
-                        f"{self.current_session['instructor_name']}")
-            self.session_info_label.setText(session_info)
-        else:
+        """Updates the session information display"""
+        index = self.session_combo.currentIndex()
+        if index <= 0:  # No valid selection
             self.session_info_label.setText("No active session")
-
-    def validate_session(self):
-        """Validate the selected session details."""
-        if not self.current_session:
-            QMessageBox.warning(self, "Session Error", "No session selected")
-            return False
-        if not self.current_session['class_name']:
-            QMessageBox.warning(self, "Session Error", "No class selected. There may not be any classes scheduled for today with the selected course and instructor.")
-            return False
-        # Additional validation checks can be added here
-        return True
-
-    def create_session_record(self):
-        """Create a record of the current attendance session."""
-        try:
-            conn = sqlite3.connect(DATABASE_PATH)
+            self.class_id = None
+            self.session_id = None
+            self.current_session = None
+            return
+            
+        # Get selected session data
+        session_data = self.session_combo.itemData(index)
+        if not session_data:
+            return
+            
+        # Format display text using available keys
+        course_code = session_data.get('course_code', 'Unknown')
+        class_name = session_data.get('class_name', 'Unknown Class')
+        
+        session_info = (f"Session: {course_code} - {class_name}\n"
+                    f"Date: {session_data['date']} | Time: {session_data['start_time']} - {session_data['end_time'] or 'End'}")
+        
+        # Add instructor if available 
+        if 'instructor_name' in session_data and session_data['instructor_name']:
+            session_info += f"\nInstructor: {session_data['instructor_name']}"
+            
+        self.session_info_label.setText(session_info)
+        
+        # Store current session data
+        self.current_session = session_data
+        self.session_id = session_data['session_id']
+        self.class_id = session_data['class_id']
+        
+    def load_expected_students(self):
+        """Load the list of students expected in this class"""
+        if not self.class_id or not self.session_id:
+            return
+            
+        # Clear existing table
+        self.attendance_table.setRowCount(0)
+        
+        # Get students for this session using the improved method
+        self.expected_students = self.db_service.get_session_students(self.session_id)
+        
+        # If no students found, try the fallback approach
+        if not self.expected_students:
+            conn = self.db_service.get_connection()
             cursor = conn.cursor()
             
-            # Insert session details into class_sessions table
+            # Get class details
             cursor.execute("""
-                INSERT INTO class_sessions 
-                (class_id, date, start_time, end_time, status) 
-                VALUES (?, ?, ?, NULL, ?)
-            """, (
-                self.current_session['class_id'],
-                self.current_session['date'],
-                self.current_session['start_time'],
-                'active'  # Status is set to active when starting a session
-            ))
-
-            session_id = cursor.lastrowid
+                SELECT course_code, year, semester 
+                FROM classes 
+                WHERE class_id = ?
+            """, (self.class_id,))
             
-            # Log activity
-            cursor.execute("""
-                INSERT INTO activity_log
-                (user_id, activity_type, timestamp)
-                VALUES (?, ?, datetime('now'))
-            """, (
-                "admin",  # Assuming the user is an admin; modify as needed
-                f"Started attendance session for {self.current_session['class_name']}"
-            ))
-            
-            conn.commit()
+            class_details = cursor.fetchone()
             conn.close()
             
-            return session_id  # Return the session ID
-            
-        except Exception as e:
-            print(f"Error creating session record: {e}")
-            QMessageBox.warning(self, "Database Error", f"Could not create session record: {e}")
-            return None  # Return None to indicate failure
+            if class_details:
+                course_code, year, semester = class_details
+                
+                # Use your existing query approach as fallback
+                conn = self.db_service.get_connection()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT DISTINCT s.student_id, s.fname, s.lname
+                    FROM students s
+                    JOIN student_courses sc ON s.student_id = sc.student_id
+                    WHERE sc.course_code = ?
+                    AND s.year_of_study = ?
+                    AND s.current_semester = ?
+                    ORDER BY s.lname, s.fname
+                """, (course_code, year, semester))
+                
+                expected_students_data = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                
+                # Convert to expected format - combining fname and lname
+                self.expected_students = [
+                    {'student_id': student[0], 'name': f"{student[1]} {student[2]}"} 
+                    for student in expected_students_data
+                ]
         
-    def start_attendance(self): 
-        """Start the attendance process with a loading indicator."""
+        # Get any students already marked present from the attendance table
+        if self.session_id:
+            # Use the new get_session_attendance method
+            attendance_records = self.db_service.get_session_attendance(self.session_id)
+            present_ids = [record['student_id'] for record in attendance_records if record['status'] == 'Present']
+        else:
+            present_ids = []
+        
+        # Populate table with expected students
+        for student in self.expected_students:
+            row = self.attendance_table.rowCount()
+            self.attendance_table.insertRow(row)
+            
+            # Add student details
+            self.attendance_table.setItem(row, 0, QTableWidgetItem(student['student_id']))
+            self.attendance_table.setItem(row, 1, QTableWidgetItem(student['name']))
+            
+            # Set status based on whether they're already marked present
+            status = "Present" if student['student_id'] in present_ids else "Absent"
+            status_item = QTableWidgetItem(status)
+            
+            # Color code the status
+            if status == "Present":
+                status_item.setBackground(QColor(200, 255, 200))  # Light green
+            else:
+                status_item.setBackground(QColor(255, 200, 200))  # Light red
+                
+            self.attendance_table.setItem(row, 2, status_item)
 
-        if not self.current_session or not self.session_id:
-            QMessageBox.warning(self, "Session Error", "Please select a class session before starting attendance")
+    def refresh_known_faces(self):
+        """Reload known faces from the face recognition service"""
+        self.known_faces, self.student_ids = self.face_service.load_known_faces()
+        
+        # Store the original IDs with underscores (for file operations)
+        self.student_ids_original = self.student_ids.copy()
+        
+        # Normalize student IDs to match database format (replacing underscores with slashes)
+        self.student_ids = [sid.replace('_', '/') for sid in self.student_ids]
+        
+        print(f"✅ Loaded {len(self.known_faces)} known faces")
+
+    def start_attendance(self):
+        """Start the attendance process"""
+        # Get selected session
+        index = self.session_combo.currentIndex()
+        if index <= 0:
+            QMessageBox.warning(self, "No Session Selected", 
+                            "Please select a class session before starting attendance")
             return
+            
+        # Update session info
+        self.update_session_display()
+        
+        # Validate session
+        if not self.session_id or not self.class_id:
+            QMessageBox.warning(self, "Session Error", "Invalid session selected")
+            return
+        
+        # Check if session is eligible for attendance (in progress or starting within 5 minutes)
+        if not self.is_session_eligible_for_attendance():
+            QMessageBox.warning(self, "Session Timing Error", 
+                        "Attendance can only be started for sessions that are currently in progress or starting within 5 minutes")
+            return
+            
+        # Make sure we have expected students loaded
+        self.load_expected_students()     
+        # Get student IDs for this class only
+        self.class_student_ids = [s['student_id'] for s in self.expected_students]
+        print("Class student IDs:")
+        for sid in self.class_student_ids:
+            print(f"  - {sid}")
+        
+        print("Face recognition student IDs:")
+        for sid in self.student_ids:
+            print(f"  - {sid}")
+
+        
+        # Check which students have registered faces (using database format with slashes)
+        registered_face_students = set(self.student_ids)  # These are already normalized in refresh_known_faces
+        class_students_with_faces = set(self.class_student_ids).intersection(registered_face_students)
+        
+        print(f"Total students in class: {len(self.class_student_ids)}")
+        print(f"Total students with registered faces: {len(registered_face_students)}")
+        print(f"Students in this class with registered faces: {len(class_students_with_faces)}")
+
+        if not class_students_with_faces:
+            # No students in this class have registered faces
+            QMessageBox.warning(self, "No Registered Faces", 
+                            "No students in this class have registered face data.\nAsk students to register their faces first.")
+            return
+            
+        # Filter known faces to only include students in this class
+        self.class_known_faces = []
+        self.class_student_ids_for_recognition = []
+        
+        for face, student_id in zip(self.known_faces, self.student_ids):
+            if student_id in self.class_student_ids:
+                self.class_known_faces.append(face)
+                self.class_student_ids_for_recognition.append(student_id)
+        
+        if not self.class_known_faces:
+            QMessageBox.warning(self, "No Registered Faces", "No students in this class have registered face data")
+            return
+        
         # Show loading status
         self.status_label.setText("🔄 Initializing camera...")
         self.progress_bar.setValue(10)
         QApplication.processEvents()  # Force UI update
         
-        # Check if there are registered faces
-        known_faces, student_ids = self.load_known_faces()
-        if not known_faces:
-            QMessageBox.warning(self, "No Registered Faces", "No students are registered")
-            self.status_label.setText("🔄 System Ready...")
-            self.progress_bar.setValue(0)
-            return
-        
         # Initialize camera with loading feedback
         self.status_label.setText("🔄 Opening camera...")
         self.progress_bar.setValue(30)
-        QApplication.processEvents()  # Force UI update
+        QApplication.processEvents()
         
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
             QMessageBox.critical(self, "Camera Error", "Could not open webcam")
             self.status_label.setText("❌ Camera error")
             self.progress_bar.setValue(0)
@@ -233,436 +450,337 @@ class StartAttendanceWindow(QWidget):
         # Update UI to show loading progress
         self.status_label.setText("🔄 Preparing face recognition...")
         self.progress_bar.setValue(70)
-        QApplication.processEvents()  # Force UI update
+        QApplication.processEvents()
         
-        # Disable start button, enable stop button
+        # Update UI state
         self.start_button.setEnabled(False)
         self.stop_button.setEnabled(True)
+        self.session_combo.setEnabled(False)
+        self.refresh_button.setEnabled(False)
         
         # Update final status
         self.status_label.setText("✅ Attendance system active")
         self.progress_bar.setValue(100)
-        QApplication.processEvents()  # Force UI update
+        QApplication.processEvents()
         
-        # Initialize counters
-        match_counter = {}  # Track repeated matches for known faces
-        unknown_counter = 0  # Track repeated unknown face appearances
-        required_matches = int(self.settings.get("required_matches", "3"))  # Minimum times a face must be seen
-        self.attendance_running = True  # Track if attendance is running
+        # Initialize tracking variables
+        self.match_counter = {}  # Track repeated matches for known faces
+        self.unknown_counter = 0  # Track repeated unknown face appearances
+        self.attendance_running = True
         
-        # Main attendance loop
+        # Start the recognition loop
+        self.run_face_recognition()
+
+    def is_session_eligible_for_attendance(self):
+        """Check if the selected session is eligible for attendance tracking"""
+        if not self.current_session:
+            return False
+            
+        current_time = datetime.now().time().strftime("%H:%M:%S")
+        start_time = self.current_session['start_time']
+        end_time = self.current_session['end_time']
+        
+        # Session is already in progress
+        if start_time <= current_time and (not end_time or end_time == "End" or current_time <= end_time):
+            return True
+            
+        # Session is starting within next 5 minutes
+        five_min_future = (datetime.now() + timedelta(minutes=5)).time().strftime("%H:%M:%S")
+        if start_time > current_time and start_time <= five_min_future:
+            return True
+            
+        return False
+
+    def run_face_recognition(self):
+        """Run the face recognition process in a loop"""
+        required_matches = int(self.settings.get("required_matches", "3"))
+        
         while self.attendance_running:
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
             if not ret:
                 break
 
+            # Check light conditions
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             avg_brightness = gray.mean()
 
-            if avg_brightness < 20:
-                cv2.putText(frame, "Low light detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+            if avg_brightness < 20:  # Too dark
+                cv2.putText(frame, "Low light detected", (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
                 cv2.imshow("Attendance System", frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
                 continue
 
+            # Detect faces
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             face_locations = face_recognition.face_locations(rgb_frame, model="hog")
 
             if not face_locations:
-                cv2.putText(frame, "No face detected", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
-                unknown_counter = 0  # Reset unknown counter if no face is found
+                cv2.putText(frame, "No face detected", (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                self.unknown_counter = 0  # Reset counter
                 cv2.imshow("Attendance System", frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
                 continue
 
+            # Get face encodings
             face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
+            # Process each detected face
             for face_encoding, face_location in zip(face_encodings, face_locations):
-
-                tolerance = int(self.settings.get("face_recognition_sensitivity", "50")) / 100
-                matches = face_recognition.compare_faces(known_faces, face_encoding, tolerance=tolerance)
-                face_distances = face_recognition.face_distance(known_faces, face_encoding)
-
-                student_id = "Unknown"
-                name = "Unknown"
-
-                required_matches = int(self.settings.get("required_matches", "3"))
-
-                save_unknown_faces = self.settings.get("save_unknown_faces", "1") == "1"
-
-                # Check if we have any matches and face distances
-                if len(known_faces) > 0 and len(matches) > 0 and np.any(matches):
-                    best_match_index = int(np.argmin(face_distances))
+                # Compare with class-specific known faces
+                student_id, name, is_known = self.face_service.recognize_face(
+                    face_encoding, 
+                    self.class_known_faces,
+                    self.class_student_ids_for_recognition,
+                    float(self.settings.get("face_recognition_sensitivity", "50")) / 100
+                )
+                
+                if is_known:
+                    # Original ID format from face recognition (with underscores)
+                    original_student_id = student_id
                     
-                    # Verify the index is valid
-                    if best_match_index < len(matches) and best_match_index < len(student_ids):
-                        if matches[best_match_index]:
-                            student_id = student_ids[best_match_index]
-                            name = self.get_name(student_id)
-
-                        # Confidence Score
-                        confidence = 1.0 - face_distances[best_match_index]
-                        confidence_text = f"Confidence: {confidence:.2f}"
-
-                        # ✅ Count the number of times a face is recognized
-                        match_counter[student_id] = match_counter.get(student_id, 0) + 1
-
-                        # ✅ Mark attendance only when seen required times
-                        if match_counter[student_id] == required_matches:
-                            self.mark_attendance(student_id)
-                            # Add to the attendance table
-                            self.update_table(student_id, name, "Present")
+                    # Convert to database format (with slashes) for database operations
+                    normalized_student_id = original_student_id.replace('_', '/')
+                    
+                    # Count repeated recognitions using database format
+                    self.match_counter[normalized_student_id] = self.match_counter.get(normalized_student_id, 0) + 1
+                    
+                    # Mark attendance after required matches
+                    if self.match_counter[normalized_student_id] == required_matches:
+                        if self.db_service.mark_attendance(normalized_student_id, self.session_id):
+                            self.update_student_status(normalized_student_id, "Present")
                 else:
-                    unknown_counter += 1
+                    # Handle unknown face - this is someone not enrolled in this class
+                    self.unknown_counter += 1
+                    
+                    # Save unknown face if enabled and seen multiple times
+                    if (self.settings.get("save_unknown_faces", "1") == "1" and 
+                        self.unknown_counter >= required_matches):
+                        current_time = datetime.now().timestamp()
+                        # Only save once every 10 seconds to avoid too many files
+                        if current_time - self.last_unknown_save_time > 10:
+                            self.face_service.save_unknown_face(
+                                frame, 
+                                face_location,
+                                self.settings
+                            )
+                            self.last_unknown_save_time = current_time
+                        self.unknown_counter = 0  # Reset counter
 
-                    # ✅ Only save unknown faces if the setting is enabled
-                    if save_unknown_faces and unknown_counter >= required_matches:
-                        self.save_unknown_face(frame, face_location)
-                        print(f"⚠️ Unknown face saved after {required_matches} detections.")
-                        unknown_counter = 0  # Reset counter after saving
-                    elif not save_unknown_faces:
-                        print("⚠️ Unknown face ignored due to settings.")
-
-                    # ✅ Save unknown face only if it appears multiple times
-                    if unknown_counter == required_matches:
-                        self.save_unknown_face(frame, face_location)
-                        unknown_counter = 0  # Reset counter after saving
-                        
-
-                # ✅ Draw a box around the face
+                # Draw face box
                 top, right, bottom, left = face_location
-                color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
+                color = (0, 255, 0) if is_known else (0, 0, 255)
                 cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
+                
+                # Display name
+                label = f"{name} ({student_id})" if is_known else "Unknown Person"
+                cv2.putText(frame, label, (left, top - 10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
-                # ✅ Display the student's name and ID or "Unknown"
-                label = f"{name} ({student_id})" if name != "Unknown" else "⚠️ Unknown"
-                cv2.putText(frame, label, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-
+            # Display the frame
             cv2.imshow("Attendance System", frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-
-            # Process any pending UI events to keep the interface responsive
+                
+            # Process UI events
             QApplication.processEvents()
 
+        # Cleanup
         if self.cap and self.cap.isOpened():
             self.cap.release()
         cv2.destroyAllWindows()
-        
-        # Reset UI when finished
-        self.attendance_running = False
-        self.status_label.setText("✅ Attendance Stopped.")
-        self.start_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
 
-        self.update_session_end_time()
 
-    def update_session_end_time(self):
-        """Update the session record with the end time when attendance is stopped."""
-        if self.session_id:
-            try:
-                conn = sqlite3.connect(DATABASE_PATH)
-                cursor = conn.cursor()
-                
-                end_time = datetime.now().strftime("%H:%M:%S")
-                
-                # Update the class_sessions table with end time and change status to 'completed'
-                cursor.execute("""
-                    UPDATE class_sessions 
-                    SET end_time = ?, status = 'completed' 
-                    WHERE session_id = ?
-                """, (end_time, self.session_id))
-                
-                # Log activity
-                cursor.execute("""
-                    INSERT INTO activity_log
-                    (user_id, activity_type, timestamp)
-                    VALUES (?, ?, datetime('now'))
-                """, (
-                    "admin",  # Assuming the user is an admin; modify as needed
-                    f"Ended attendance session {self.session_id}"
-                ))
-                
-                conn.commit()
-                conn.close()
-                
-                print(f"✅ Session {self.session_id} ended at {end_time}")
-            except Exception as e:
-                print(f"Error updating session end time: {e}")
 
     def stop_attendance(self):
-        """Stops attendance and ensures webcam is released instantly."""
-        self.attendance_running = False  # ✅ Stops the loop immediately
-        self.status_label.setText("✅ Attendance Stopped.")
+        """Stop the attendance process"""
+        self.attendance_running = False
+        
+        # Reset UI
+        self.status_label.setText("✅ Attendance Stopped")
         self.start_button.setEnabled(True)
         self.stop_button.setEnabled(False)
+        self.session_combo.setEnabled(True)
+        self.refresh_button.setEnabled(True)
         self.timer.stop()
-
-         # Release webcam
+        
+        # Release resources
         if self.cap and self.cap.isOpened():
             self.cap.release()
         cv2.destroyAllWindows()
-
-        self.update_session_end_time()
-
-    def save_unknown_face(self, frame, face_location):
-        """Save detected unknown faces with robust duplicate detection."""
-        try:
-            if not os.path.exists(UNKNOWN_DIR):
-                os.makedirs(UNKNOWN_DIR)
-
-            # Extract and pad face region
-            top, right, bottom, left = face_location
-            padding = 20
-            top, bottom = max(0, top - padding), min(frame.shape[0], bottom + padding)
-            left, right = max(0, left - padding), min(frame.shape[1], right + padding)
-            face_img = frame[top:bottom, left:right]
-
-            # Ensure face is large enough for recognition
-            if face_img.shape[0] < MIN_FACE_SIZE or face_img.shape[1] < MIN_FACE_SIZE:
-                print("⚠️ Face too small, skipping save.")
-                return
-
-            # Convert image and generate multiple hash types for better comparison
-            pil_image = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
-            standardized_image = pil_image.convert("L").resize((128, 128))
-            
-            # Generate multiple hash types for more robust comparison
-            phash_value = imagehash.phash(standardized_image)
-            dhash_value = imagehash.dhash(standardized_image)
-            avg_hash_value = imagehash.average_hash(standardized_image)
-            
-            # Get face encoding for face recognition comparison (more accurate)
-            rgb_face = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-            face_encodings = face_recognition.face_encodings(rgb_face)
-            if not face_encodings:
-                print("⚠️ Could not generate face encoding, skipping save.")
-                return
-            face_encoding = face_encodings[0]
-
-            # Store current timestamp to prevent rapid duplicate saves
-            current_time = system_time.time()
-            
-            # Check for duplicates using multiple methods
-            is_duplicate = False
-            closest_match = float('inf')
-            closest_file = None
-            
-            for file in os.listdir(UNKNOWN_DIR):
-                file_path = os.path.join(UNKNOWN_DIR, file)
-                
-                # Skip non-image files
-                if not file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                    continue
-                    
-                try:
-                    # Method 1: Multi-hash comparison
-                    existing_img = Image.open(file_path).convert("L").resize((128, 128))
-                    existing_phash = imagehash.phash(existing_img)
-                    existing_dhash = imagehash.dhash(existing_img)
-                    existing_avg_hash = imagehash.average_hash(existing_img)
-                    
-                    # Calculate combined hash difference (weighted average)
-                    phash_diff = abs(phash_value - existing_phash)
-                    dhash_diff = abs(dhash_value - existing_dhash)
-                    avg_hash_diff = abs(avg_hash_value - existing_avg_hash)
-                    
-                    combined_diff = (phash_diff * 0.5) + (dhash_diff * 0.3) + (avg_hash_diff * 0.2)
-                    
-                    if combined_diff < closest_match:
-                        closest_match = combined_diff
-                        closest_file = file
-                    
-                    if combined_diff < HASH_SIMILARITY_THRESHOLD:
-                        print(f"⚠️ Duplicate detected via hash (similarity: {combined_diff})")
-                        is_duplicate = True
-                        break
-                    
-                    
-                    if HASH_SIMILARITY_THRESHOLD <= combined_diff <= HASH_SIMILARITY_THRESHOLD * 2:
-                        try:
-                            existing_face_img = cv2.imread(file_path)
-                            existing_rgb = cv2.cvtColor(existing_face_img, cv2.COLOR_BGR2RGB)
-                            existing_encodings = face_recognition.face_encodings(existing_rgb)
-                            
-                            if existing_encodings:
-                                # Compare face encodings
-                                face_distance = face_recognition.face_distance([existing_encodings[0]], face_encoding)[0]
-                                
-                                if face_distance < FACE_SIMILARITY_THRESHOLD:
-                                    print(f"⚠️ Duplicate detected via face recognition (distance: {face_distance})")
-                                    is_duplicate = True
-                                    break
-                        except Exception as e:
-                            print(f"Error comparing face encodings: {e}")
-                    
-                except Exception as e:
-                    print(f"Error processing existing image {file}: {e}")
-                    continue
-
-            # Check cooldown period for saving unknown faces
-            last_save_time = getattr(self, 'last_unknown_save_time', 0)
-            cooldown_period = self.settings.get("unknown_face_cooldown", "5")  # 5 seconds default
-            
-            if current_time - last_save_time < float(cooldown_period):
-                print(f"⚠️ Cooldown period active, skipping save. ({current_time - last_save_time:.1f}s < {cooldown_period}s)")
-                return
-
-            # Save file if no duplicates found
-            if not is_duplicate:
-                file_path = os.path.join(UNKNOWN_DIR, f"unknown_{uuid.uuid4().hex[:8]}.jpg")
-                pil_image.save(file_path)
-                self.last_unknown_save_time = current_time
-                
-                print(f"✅ New unknown face saved: {file_path}")
-                if closest_match != float('inf'):
-                    print(f"   Closest match was {closest_file} with difference {closest_match}")
-                
-                # Check brightness & contrast before enhancement
-                gray = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
-                avg_brightness = np.mean(gray)
-                contrast = np.std(gray)
-
-                if BRIGHTNESS_MIN < avg_brightness < BRIGHTNESS_MAX and contrast > CONTRAST_THRESHOLD:
-                    print("📸 Image quality is good, skipping enhancement.")
-                    final_path = file_path
-                else:
-                    enhanced_path = enhance_image(file_path)
-                    if enhanced_path:
-                        final_path = enhanced_path
-                        print(f"📸 Enhanced & saved unknown face at {final_path}")
-                    else:
-                        final_path = file_path  # Fallback to original
-
-                return final_path
-            else:
-                print("⚠️ Duplicate face not saved.")
-                return None
-
-        except Exception as e:
-            print(f"❌ Error saving unknown face: {e}")
-            return None
         
+        # Update session end time
+        if self.session_id:
+            self.db_service.update_session_end_time(self.session_id)
+            
+        # Show summary
+        self.show_attendance_summary()
+        
+    def show_attendance_summary(self):
+        """Show a detailed summary of the attendance session with option to view full report"""
+        if not self.session_id:
+            return
+        
+        # Get attendance records for this session using the new method
+        attendance_records = self.db_service.get_session_attendance(self.session_id)
+        present_students = [record['student_id'] for record in attendance_records if record['status'] == 'Present']
+        
+        # Get total expected students
+        total_students = len(self.expected_students)
+        present_count = len(present_students)
+        absent_count = total_students - present_count
+        
+        # Create list of present and absent students
+        present_students_names = [student['name'] for student in self.expected_students 
+                        if student['student_id'] in present_students]
+        absent_students = [student['name'] for student in self.expected_students 
+                        if student['student_id'] not in present_students]
+                        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Attendance Summary")
+        dialog.setMinimumSize(500, 400)
+        
+        layout = QVBoxLayout()
+        
+        # Create summary text
+        summary = f"<h2>Attendance Session Summary</h2>"
+        summary += f"<p><b>Course:</b> {self.current_session['course_code']}<br>"
+        summary += f"<b>Class:</b> {self.current_session['class_name']}<br>"
+        summary += f"<b>Date:</b> {self.current_session['date']}<br>"
+        summary += f"<b>Time:</b> {self.current_session['start_time']} - {datetime.now().strftime('%H:%M:%S')}</p>"
+        
+        # Add attendance statistics
+        attendance_percentage = int(present_count/total_students*100) if total_students > 0 else 0
+        summary += f"<h3>Statistics</h3>"
+        summary += f"<p><b>Students Present:</b> {present_count} / {total_students} ({attendance_percentage}%)<br>"
+        summary += f"<b>Students Absent:</b> {absent_count}</p>"
+        
+        # Add present students list
+        summary += f"<h3>Present Students ({present_count})</h3>"
+        if present_students_names:
+            summary += "<ul>"
+            for student in present_students_names:
+                summary += f"<li>{student}</li>"
+            summary += "</ul>"
+        else:
+            summary += "<p>No students present.</p>"
+        
+        # Add absent students list
+        summary += f"<h3>Absent Students ({absent_count})</h3>"
+        if absent_students:
+            summary += "<ul>"
+            for student in absent_students:
+                summary += f"<li>{student}</li>"
+            summary += "</ul>"
+        else:
+            summary += "<p>No students absent.</p>"
+        
+        # Display the summary
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        text_edit.setHtml(summary)
+        layout.addWidget(text_edit)
+        
+        # Add buttons
+        button_layout = QHBoxLayout()
+        
+        close_button = QPushButton("Close")
+        close_button.clicked.connect(dialog.accept)
+        
+        view_report_button = QPushButton("View Full Report")
+        view_report_button.clicked.connect(lambda: self.open_attendance_report(
+            self.current_session['date'], 
+            self.current_session['course_code'])
+        )
+        
+        export_button = QPushButton("Export PDF")
+        export_button.clicked.connect(lambda: self.export_session_report_to_pdf(summary))
+        
+        button_layout.addWidget(export_button)
+        button_layout.addWidget(view_report_button)
+        button_layout.addWidget(close_button)
+        
+        layout.addLayout(button_layout)
+        dialog.setLayout(layout)
+        
+        dialog.exec_()
+
+    def open_attendance_report(self, date, course_code):
+        """Open the attendance report window with pre-filtered data"""
+                
+        # Create and show the report window
+        self.report_window = ViewAttendanceWindow()
+        
+        # Pre-filter the report for this session
+        self.report_window.date_from.setDate(QDate.fromString(date, "yyyy-MM-dd"))
+        self.report_window.date_to.setDate(QDate.fromString(date, "yyyy-MM-dd"))
+        
+        # Find and select the course in the dropdown
+        index = self.report_window.course_filter.findText(course_code)
+        if index >= 0:
+            self.report_window.course_filter.setCurrentIndex(index)
+        
+        # If we have a class ID, select it as well
+        if self.class_id:
+            for i in range(self.report_window.class_filter.count()):
+                class_data = self.report_window.class_filter.itemText(i)
+                if class_data.startswith(str(self.class_id)):
+                    self.report_window.class_filter.setCurrentIndex(i)
+                    break
+        
+        # Trigger the filter application
+        self.report_window.apply_filters()
+        
+        # Show the window
+        self.report_window.show()
+
+    def export_session_report_to_pdf(self, html_content):
+        """Export the session report to PDF"""
+                
+        # Create a printer and set to PDF
+        printer = QPrinter(QPrinter.HighResolution)
+        printer.setOutputFormat(QPrinter.PdfFormat)
+        
+        # Get file name from user
+        file_name, _ = QFileDialog.getSaveFileName(self, "Export PDF", 
+                                                f"Attendance_{self.current_session['date']}_{self.current_session['class_name']}.pdf", 
+                                                "PDF Files (*.pdf)")
+        
+        if file_name:
+            # Set the output file name
+            printer.setOutputFileName(file_name)
+            
+            # Create a document and add the HTML content
+            document = QTextDocument()
+            document.setHtml(html_content)
+            
+            # Print the document to the PDF file
+            document.print_(printer)      
+            QMessageBox.information(self, "Export Complete", f"Report exported to {file_name}")
+
+
+    def update_student_status(self, student_id, status):
+        """Update a student's status in the attendance table"""
+        for row in range(self.attendance_table.rowCount()):
+            if self.attendance_table.item(row, 0).text() == student_id:
+                status_item = QTableWidgetItem(status)
+                
+                # Color code the status
+                if status == "Present":
+                    status_item.setBackground(QColor(200, 255, 200))  # Light green
+                else:
+                    status_item.setBackground(QColor(255, 200, 200))  # Light red
+                    
+                self.attendance_table.setItem(row, 2, status_item)
+                return True
+                
+        return False
+
     def update_progress(self):
-        """Simulates progress update while attendance is running."""
+        """Updates progress bar during attendance"""
         current_value = self.progress_bar.value()
         if current_value < 100:
             self.progress_bar.setValue(current_value + 5)
-
-    
-    def load_known_faces(self):
-        
-        self.known_faces = []  # Clear previous encodings
-        self.student_ids = []  
-
-        # Ensure encoding directory exists
-        encoding_dir = "student_encodings"
-        if not os.path.exists(encoding_dir):
-            print("❌ Student encodings directory not found.")
-            return [], []
-
-        try:
-            # Find all encoding files
-            encoding_files = [f for f in os.listdir(encoding_dir) if f.endswith('_encodings.pkl')]
-            
-            for encoding_file in encoding_files:
-                try:
-                    file_path = os.path.join(encoding_dir, encoding_file)
-                    
-                    # Extract student ID from filename
-                    student_id = encoding_file.replace('student_', '').replace('_encodings.pkl', '')
-                    
-                    # Load encodings from pickle file
-                    with open(file_path, 'rb') as f:
-                        encodings = pickle.load(f)
-                    
-                    # Add each encoding and corresponding student ID
-                    for encoding in encodings:
-                        self.known_faces.append(encoding)
-                        self.student_ids.append(student_id)
-                    
-                    print(f"✅ Loaded {len(encodings)} encodings for student {student_id}")
-                
-                except Exception as e:
-                    print(f"❌ Error loading encoding file {encoding_file}: {e}")
-
-            print(f"✅ Total loaded faces: {len(self.known_faces)}")
-            return self.known_faces, self.student_ids
-
-        except Exception as e:
-            print(f"❌ Error in loading known faces: {e}")
-            return [], []
-    def update_table(self, student_id, name, status):
-        """Updates the attendance table dynamically."""
-        row = self.attendance_table.rowCount()
-        self.attendance_table.insertRow(row)
-        self.attendance_table.setItem(row, 0, QTableWidgetItem(student_id))
-        self.attendance_table.setItem(row, 1, QTableWidgetItem(name))
-        self.attendance_table.setItem(row, 2, QTableWidgetItem(status))
-
-    def mark_attendance(self, student_id):
-        """Marks attendance in the database with session information."""
-        try:
-            conn = sqlite3.connect(DATABASE_PATH)
-            cursor = conn.cursor()
-            today_date = datetime.now().strftime("%Y-%m-%d")
-            current_time = datetime.now().strftime("%H:%M:%S")
-
-            # Check if already marked for this session
-            cursor.execute("""
-                SELECT * FROM attendance 
-                WHERE student_id = ? AND date = ? AND session_id = ?
-            """, (student_id, today_date, self.session_id))
-            
-            if not cursor.fetchone():
-                # Insert with session ID
-                cursor.execute("""
-                    INSERT INTO attendance 
-                    (student_id, date, time, status, session_id) 
-                    VALUES (?, ?, ?, 'Present', ?)
-                """, (student_id, today_date, current_time, self.session_id))
-                
-                conn.commit()
-                print(f"✅ Marked attendance for student {student_id} in session {self.session_id}")
-            
-            conn.close()
-        except Exception as e:
-            print(f"❌ Error marking attendance: {e}")
-
-
-    def load_settings(self):
-        """Loads settings from the database."""
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT setting_key, setting_value FROM settings")
-        settings = dict(cursor.fetchall())
-        conn.close()
-
-        return settings if settings else {} 
-
-    def apply_saved_settings(self):
-        """Load and apply settings when the dashboard starts."""
-        conn = sqlite3.connect("attendance.db")
-        cursor = conn.cursor()
-        cursor.execute("SELECT setting_key, setting_value FROM settings")
-        settings = dict(cursor.fetchall())
-        conn.close()
-        
-        if self.settings.get("auto_start", "0") == "1":
-            self.start_attendance()  # Function to begin attendance automatically
-
-
-    def get_saved_dark_mode_setting(self):
-        """Retrieve the saved dark mode setting from the database."""
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT setting_value FROM settings WHERE setting_key = 'dark_mode'")
-        result = cursor.fetchone()
-        conn.close()
-
-        return result is not None and result[0] == "1"  # Convert result to Boolean
-
-
-    

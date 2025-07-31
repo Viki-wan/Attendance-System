@@ -11,10 +11,10 @@ import imagehash
 import face_recognition
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QGroupBox, QApplication, QPushButton, 
-    QLineEdit, QFormLayout, QMessageBox, QSizePolicy, QComboBox, QSpinBox,  QProgressBar, QTabWidget
+    QLineEdit, QFormLayout, QMessageBox, QSizePolicy, QComboBox, QSpinBox,  QProgressBar, QTabWidget, QCheckBox
 )
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from admin.webcam_window import WebcamWindow
 from config.utils_constants import ENCODING_DIR
 from PIL import Image, ImageOps
@@ -23,6 +23,36 @@ from PIL import Image, ImageOps
 IMAGE_DIR = "student_images"
 if not os.path.exists(IMAGE_DIR):
     os.makedirs(IMAGE_DIR)
+
+class ValidatingTabWidget(QTabWidget):
+    """Custom tab widget that validates before allowing tab changes"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.validator = None
+    
+    def setValidator(self, validator_function):
+        """Set the validator function that returns True/False for tab changes"""
+        self.validator = validator_function
+    
+    def mousePressEvent(self, event):
+        """Intercept mouse clicks on tab bar"""
+        tab_bar = self.tabBar()
+        clicked_index = tab_bar.tabAt(event.pos())
+        current_index = self.currentIndex()
+        
+        # If click is outside tabs or going backward, use default behavior
+        if clicked_index == -1 or clicked_index <= current_index:
+            super().mousePressEvent(event)
+            return
+        
+        # For forward movement, check with validator
+        if self.validator and not self.validator(current_index, clicked_index):
+            # Validation failed, ignore the click
+            event.ignore()
+        else:
+            # Validation passed, allow normal handling
+            super().mousePressEvent(event)
+
 
 class RegisterStudentWindow(QMainWindow):
     def __init__(self, image_path=None, parent_window=None):
@@ -150,6 +180,14 @@ class RegisterStudentWindow(QMainWindow):
         
         # Tab widget for form sections
         self.tab_widget = QTabWidget()
+        self.tab_widget = QTabWidget()
+        
+        # Disable tab clicking entirely
+        self.tab_widget.tabBar().setEnabled(False)
+        
+        # Make sure tab widget still shows the tabs visually
+        self.tab_widget.setTabBarAutoHide(False)
+        self.tab_widget.setDocumentMode(True)  # Option
         
         # Tab 1: Personal Information
         personal_tab = QWidget()
@@ -157,11 +195,17 @@ class RegisterStudentWindow(QMainWindow):
         personal_layout.setSpacing(12)
         personal_layout.setContentsMargins(20, 20, 20, 20)
         
-        # Student Name field
-        self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("Enter full name")
-        self.name_input.textChanged.connect(self.block_numbers_in_name)
-        personal_layout.addRow("Student Name:", self.name_input)
+        # First Name field
+        self.fname_input = QLineEdit()
+        self.fname_input.setPlaceholderText("Enter first name")
+        self.fname_input.textChanged.connect(self.block_numbers_in_name)
+        personal_layout.addRow("First Name:", self.fname_input)
+        
+        # Last Name field
+        self.lname_input = QLineEdit()
+        self.lname_input.setPlaceholderText("Enter last name")
+        self.lname_input.textChanged.connect(self.block_numbers_in_name)
+        personal_layout.addRow("Last Name:", self.lname_input)
         
         # Student ID field
         self.id_input = QLineEdit()
@@ -197,11 +241,14 @@ class RegisterStudentWindow(QMainWindow):
         self.year_input = QSpinBox()
         self.year_input.setRange(1, 6)
         self.year_input.setValue(1)
+        self.year_input.valueChanged.connect(self.update_semester_options)
         academic_layout.addRow("Year of Study:", self.year_input)
+        
         
         # Current semester
         self.semester_input = QComboBox()
         self.semester_input.addItems(["1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "4.1", "4.2"])
+        self.update_semester_options(self.year_input.value())
         academic_layout.addRow("Current Semester:", self.semester_input)
         
         self.tab_widget.addTab(academic_tab, "🎓 Academic Info")
@@ -259,20 +306,20 @@ class RegisterStudentWindow(QMainWindow):
         
         content_layout.addWidget(image_panel, 1)
         
-        main_layout.addLayout(content_layout)
+        main_layout.addLayout(content_layout)    
         
         # Bottom buttons
         button_layout = QHBoxLayout()
         button_layout.setSpacing(15)
         
-        self.back_button = QPushButton("⬅️ Back")
-        self.back_button.setVisible(False)  # Initially hidden
-        
+        self.back_button = QPushButton("⬅️ Previous")
+        self.next_button = QPushButton("Next ➡️")
         self.submit_button = QPushButton("✅ Register Student")
         self.cancel_button = QPushButton("❌ Cancel")
         
         button_layout.addWidget(self.back_button)
         button_layout.addStretch(1)
+        button_layout.addWidget(self.next_button)
         button_layout.addWidget(self.submit_button)
         button_layout.addWidget(self.cancel_button)
         
@@ -284,13 +331,32 @@ class RegisterStudentWindow(QMainWindow):
         self.captured_frame = None
         self.face_only_path = None  # Store path to face-only image for hashing
         self.temp_files = []  # Track temporary files for cleanup
+        self.skip_similarity_check = False  # Flag to bypass similarity check
 
         # Connect signals
         self.capture_button.clicked.connect(self.open_webcam)
+        self.back_button.clicked.connect(self.go_to_previous_tab)
+        self.next_button.clicked.connect(self.go_to_next_tab)
         self.submit_button.clicked.connect(self.register_student)
         self.cancel_button.clicked.connect(self.close)
-        self.back_button.clicked.connect(self.go_back)
-        self.tab_widget.currentChanged.connect(self.update_progress)
+        self.tab_widget.currentChanged.connect(self.update_tab_buttons)
+
+        # Initial button states
+        self.update_tab_buttons(0)  # Start with first tab
+
+        # Add upload photo button to the photo tab
+        photo_button_layout = QHBoxLayout()
+        self.upload_button = QPushButton("📁 Upload Photo")
+        self.upload_button.clicked.connect(self.upload_photo)
+        photo_button_layout.addWidget(self.upload_button)
+        photo_button_layout.addWidget(self.capture_button)
+        photo_layout.insertLayout(2, photo_button_layout)  # Insert below instructions
+        
+        # Add a checkbox to bypass similarity check for presentations
+        self.presentation_mode_check = QCheckBox("Presentation Mode (bypass similarity check)")
+        self.presentation_mode_check.setChecked(PRESENTATION_MODE)  # Use constant from top of file
+        self.presentation_mode_check.stateChanged.connect(self.toggle_presentation_mode)
+        photo_layout.addWidget(self.presentation_mode_check)
 
         # Display image if provided
         if self.captured_image_path:
@@ -299,7 +365,144 @@ class RegisterStudentWindow(QMainWindow):
             self.update_quality_indicators()
 
         self.image_blur_info = None
-        self.skip_similarity_check = False
+
+    def update_tab_buttons(self, tab_index):
+        """Update button states based on the current tab"""
+        total_tabs = self.tab_widget.count()
+        
+        # Determine which buttons should be visible
+        is_first_tab = tab_index == 0
+        is_last_tab = tab_index == total_tabs - 1
+        
+        # Update Previous button
+        self.back_button.setVisible(not is_first_tab)
+        self.back_button.setEnabled(not is_first_tab)
+        
+        # Update Next/Submit buttons
+        self.next_button.setVisible(not is_last_tab)
+        self.next_button.setEnabled(not is_last_tab)
+        
+        # Show Submit button only on last tab
+        self.submit_button.setVisible(is_last_tab)
+        
+        # Update progress indicator
+        self.update_progress(tab_index)
+        
+        # If on the photo tab, ensure quality box visibility is properly set
+        if tab_index == 2:  # Photo tab
+            self.quality_box.setVisible(self.captured_image_path is not None)
+
+    def go_to_previous_tab(self):
+        """Navigate to the previous tab"""
+        current_index = self.tab_widget.currentIndex()
+        if current_index > 0:
+            self.tab_widget.setCurrentIndex(current_index - 1)
+
+    def go_to_next_tab(self):
+        """Validate current tab and navigate to the next tab if valid"""
+        current_index = self.tab_widget.currentIndex()
+        
+        # Validate current tab
+        if current_index == 0:  # Personal Info tab
+            if not self.validate_personal_info():
+                return
+        elif current_index == 1:  # Academic Info tab
+            if not self.validate_academic_info():
+                return
+                
+        # Proceed to next tab
+        if current_index < self.tab_widget.count() - 1:
+            self.tab_widget.setCurrentIndex(current_index + 1)
+
+    def validate_personal_info(self):
+        """Validate fields in the personal info tab"""
+        # Check required fields
+        if not self.fname_input.text().strip():
+            QMessageBox.warning(self, "Missing Information", "Please enter first name.")
+            self.fname_input.setFocus()
+            return False
+            
+        if not self.lname_input.text().strip():
+            QMessageBox.warning(self, "Missing Information", "Please enter last name.")
+            self.lname_input.setFocus()
+            return False
+            
+        if not self.id_input.text().strip():
+            QMessageBox.warning(self, "Missing Information", "Please enter student ID.")
+            self.id_input.setFocus()
+            return False
+            
+        # Validate format of fields
+        if not self.validate_student_id():
+            self.id_input.setFocus()
+            return False
+            
+        if not self.validate_name():
+            return False
+            
+        # All validations passed
+        return True
+    
+    def validate_academic_info(self):
+        """Validate fields in the academic info tab"""
+        # Check if a course is selected
+        if self.course_combo.currentIndex() <= 0:
+            QMessageBox.warning(self, "Missing Information", "Please select a course.")
+            self.course_combo.setFocus()
+            return False
+        
+        # All validations passed
+        return True
+
+    def upload_photo(self):
+        """Allow user to upload a photo instead of capturing with webcam"""
+        from PyQt5.QtWidgets import QFileDialog
+        
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select Student Photo", 
+            "", 
+            "Image Files (*.jpg *.jpeg *.png)"
+        )
+        
+        if file_path:
+            try:
+                # Copy the selected file to a temporary location
+                student_id = self.id_input.text().strip()
+                if not student_id:
+                    QMessageBox.warning(self, "Missing ID", "Please enter Student ID before uploading photo")
+                    return
+                    
+                sanitized_id = student_id.replace('/', '_')
+                temp_path = os.path.join(IMAGE_DIR, f"temp_{sanitized_id}.jpg")
+                
+                # Convert to jpg if needed and resize
+                img = Image.open(file_path)
+                img = ImageOps.exif_transpose(img)  # Handle rotation
+                img = img.convert('RGB')  # Convert to RGB mode
+                
+                # Resize if too large while maintaining aspect ratio
+                max_size = 800
+                if max(img.width, img.height) > max_size:
+                    if img.width > img.height:
+                        new_width = max_size
+                        new_height = int(img.height * max_size / img.width)
+                    else:
+                        new_height = max_size
+                        new_width = int(img.width * max_size / img.height)
+                    img = img.resize((new_width, new_height), Image.LANCZOS)
+                    
+                img.save(temp_path, 'JPEG', quality=90)
+                self.temp_files.append(temp_path)
+                
+                # Process uploaded image similar to captured one
+                frame = cv2.imread(temp_path)
+                self.process_photo(frame, temp_path)
+                
+            except Exception as e:
+                QMessageBox.warning(self, "Upload Error", f"Error processing uploaded image: {e}")
+
+
 
     def update_progress(self, tab_index):
         """Update the progress indicator based on the current tab"""
@@ -318,6 +521,35 @@ class RegisterStudentWindow(QMainWindow):
         current_index = self.tab_widget.currentIndex()
         if current_index > 0:
             self.tab_widget.setCurrentIndex(current_index - 1)
+
+    def process_photo(self, frame, temp_path):
+        """Process photo regardless of source (webcam or upload)"""
+        # Store frame for later use
+        self.captured_frame = frame.copy() if frame is not None else None
+        
+        # Check image quality
+        blur_value, is_blurry, blur_message = self.check_image_quality(temp_path)
+        self.image_blur_info = {
+            'value': blur_value,
+            'is_blurry': is_blurry,
+            'message': blur_message
+        }
+        
+        # Extract face and enhance image
+        enhanced_path, face_path = self.enhance_image(temp_path, blur_value)
+        if enhanced_path:
+            self.temp_files.append(enhanced_path)
+        if face_path:
+            self.temp_files.append(face_path)
+            
+        self.captured_image_path = enhanced_path if enhanced_path else temp_path
+        self.face_only_path = face_path  # Store face-only path for hashing
+        self.set_image(self.captured_image_path)
+        
+        # Make quality indicators visible
+        self.quality_box.setVisible(True)
+        self.update_quality_indicators()
+
 
     def update_quality_indicators(self):
         """Update the image quality indicators after capture"""
@@ -360,18 +592,144 @@ class RegisterStudentWindow(QMainWindow):
         self.similarity_status_label.setText("Will check on registration")
 
     def validate_name(self):
-        """Ensure name contains only letters and spaces."""
-        name = self.name_input.text().strip()
-        if not name.replace(" ", "").isalpha():
-            QMessageBox.warning(self, "Invalid Name", "Name can only contain letters and spaces.")
-            self.name_input.clear()
+        """Ensure first and last names contain only letters and spaces."""
+        fname = self.fname_input.text().strip()
+        lname = self.lname_input.text().strip()
+        
+        if not fname.replace(" ", "").isalpha():
+            QMessageBox.warning(self, "Invalid First Name", "First name can only contain letters and spaces.")
+            self.fname_input.clear()
             return False
+            
+        if not lname.replace(" ", "").isalpha():
+            QMessageBox.warning(self, "Invalid Last Name", "Last name can only contain letters and spaces.")
+            self.lname_input.clear()
+            return False
+            
         return True
     
+    def setup_year_semester_validation(self):
+        # Connect the year input's valueChanged signal to a custom slot
+        self.year_input.valueChanged.connect(self.update_semester_options)
+        
+        # Initial update to set correct options based on default year
+        self.update_semester_options(self.year_input.value())
+
+    def suggest_year_from_registration(self, registration_id):
+        """Suggest academic year based on registration number and current date"""
+        import datetime
+        
+        # Extract the enrollment year from registration number (format: S00/00000/YY)
+        match = re.match(r"^S\d{2}/\d{5}/(\d{2})$", registration_id)
+        if not match:
+            return 1  # Default to first year if format doesn't match
+        
+        enrollment_year = int(match.group(1))
+        
+        # Get current year's last two digits
+        current_year = datetime.datetime.now().year % 100
+        
+        # Calculate years since enrollment
+        years_enrolled = current_year - enrollment_year
+        
+        # Handle academic period
+        current_month = datetime.datetime.now().month
+        # Adjust for academic calendar - assuming academic year starts in September
+        if current_month < 9:  # Before September, still in the same academic year
+            academic_year = years_enrolled
+        else:  # September and after, new academic year has started
+            academic_year = years_enrolled + 1
+        
+        # Handle special cases
+        if academic_year < 1:
+            return 1
+        elif academic_year > 6:  # Assuming maximum 6 years for a program
+            return 6
+        else:
+            return academic_year
+
+
+    def determine_current_semester(self):
+        """Determine the current semester based on today's date
+        and student's registration year"""
+        import datetime
+        
+        today = datetime.date.today()
+        month = today.month
+        
+        # Get registration year from ID if available
+        student_id = self.id_input.text().strip()
+        reg_year = None
+        
+        match = re.match(r"^S\d{2}/\d{5}/(\d{2})$", student_id)
+        if match:
+            reg_year = int(match.group(1))
+        
+        # Determine base semester from month
+        if 9 <= month <= 12:
+            # First semester (September to December)
+            base_semester = 1
+        elif 1 <= month <= 4:
+            # Second semester (January to April)
+            base_semester = 2
+        else:
+            # Default to first semester during break months
+            base_semester = 1
+        
+        # Special adjustments for specific cohorts
+        if reg_year == 24:  # 2024 cohort
+            # Currently in second semester of first year
+            return 2 if self.year_input.value() == 1 else base_semester
+        
+        # General case - just return the base semester
+        return base_semester
+    
+    def update_semester_options(self, year):
+        """Update semester options based on selected year and current academic period"""
+        # Store the current text before clearing (if possible)
+        current_text = self.semester_input.currentText()
+        
+        # Block signals temporarily to prevent unintended side effects
+        self.semester_input.blockSignals(True)
+        
+        # Clear all existing items
+        self.semester_input.clear()
+        
+        # Add the relevant semesters for the selected year
+        self.semester_input.addItem(f"{year}.1")
+        self.semester_input.addItem(f"{year}.2")
+        
+        # Determine the current academic semester
+        current_semester = self.determine_current_semester()
+        
+        # Set the default semester based on the academic period
+        default_semester = f"{year}.{current_semester}"
+        
+        # Try to select the current academic semester by default
+        index = self.semester_input.findText(default_semester)
+        if index >= 0:
+            self.semester_input.setCurrentIndex(index)
+        else:
+            # If not found (shouldn't happen), set to first item
+            self.semester_input.setCurrentIndex(0)
+        
+        # Try to restore previous selection if valid and if this isn't the first load
+        if current_text:
+            prev_index = self.semester_input.findText(current_text)
+            if prev_index >= 0:
+                self.semester_input.setCurrentIndex(prev_index)
+        
+        # Unblock signals
+        self.semester_input.blockSignals(False)   
+
     def block_numbers_in_name(self):
         """Prevent numbers from being typed in the name field."""
-        text = self.name_input.text()
-        self.name_input.setText(re.sub(r"\d+", "", text))  # Remove digits dynamically
+        text = self.fname_input.text()
+        self.fname_input.setText(re.sub(r"\d+", "", text))  # Remove digits dynamically
+
+        text = self.lname_input.text()
+        self.lname_input.setText(re.sub(r"\d+", "", text))  # Remove digits dynamically
+
 
     def validate_student_id(self):
         """Ensure student ID follows S00/00000/YY format with valid course code and year range."""
@@ -417,7 +775,7 @@ class RegisterStudentWindow(QMainWindow):
             return False
 
     def on_student_id_changed(self):
-        """Auto-select course based on student ID if valid format."""
+        """Auto-select course based on student ID and suggest year of study"""
         student_id = self.id_input.text().strip()
         pattern = r"^(S\d{2})/\d{5}/\d{2}$"
         
@@ -426,6 +784,22 @@ class RegisterStudentWindow(QMainWindow):
             course_code = match.group(1)
             # Find and select the matching course in the combobox
             self.select_course_by_code(course_code)
+            
+            # Suggest year of study based on registration number
+            suggested_year = self.suggest_year_from_registration(student_id)
+            
+            # Update year input
+            self.year_input.setValue(suggested_year)
+            
+            # Show an informational tooltip about the suggested year
+            self.year_input.setToolTip(f"Year {suggested_year} suggested based on registration number.\n"
+                                    f"Adjust manually for deferred or special cases.")
+            
+            # Highlight the year field briefly to draw attention
+            self.year_input.setStyleSheet("background-color: #FFFF99;")  # Light yellow highlight
+            
+            # Reset the highlight after a short delay using a timer
+            QTimer.singleShot(2000, lambda: self.year_input.setStyleSheet(""))
 
     def select_course_by_code(self, course_code):
         """Select the course in the combobox matching the given code."""
@@ -443,6 +817,7 @@ class RegisterStudentWindow(QMainWindow):
         else:
             # Reset to default selection if no match
             self.course_combo.setCurrentIndex(0)
+    
 
     def load_courses(self):
         """Load courses from database into the combobox."""
@@ -501,10 +876,6 @@ class RegisterStudentWindow(QMainWindow):
             return
 
         sanitized_id = student_id.replace('/', '_')
-
-        # Store frame for later use
-        self.captured_frame = frame.copy()
-
         temp_path = os.path.join(IMAGE_DIR, f"temp_{sanitized_id}.jpg")
         
         try:
@@ -525,25 +896,19 @@ class RegisterStudentWindow(QMainWindow):
             QMessageBox.warning(self, "Image Save Error", f"Could not save image: {e}")
             return
 
-        # Check image quality - but don't show message box here
-        # Just store the blur info for later use during registration
-        blur_value, is_blurry, blur_message = self.check_image_quality(temp_path)
-        self.image_blur_info = {
-            'value': blur_value,
-            'is_blurry': is_blurry,
-            'message': blur_message
-        }
-        
-        # Extract face and enhance image
-        enhanced_path, face_path = self.enhance_image(temp_path, blur_value)
-        if enhanced_path:
-            self.temp_files.append(enhanced_path)  # Track temp file
-        if face_path:
-            self.temp_files.append(face_path)  # Track temp file
-            
-        self.captured_image_path = enhanced_path if enhanced_path else temp_path
-        self.face_only_path = face_path  # Store face-only path for hashing
-        self.set_image(self.captured_image_path)
+        # Process the captured photo
+        self.process_photo(frame, temp_path)
+    
+    def toggle_presentation_mode(self, state):
+        """Toggle presentation mode to bypass similarity checks"""
+        self.skip_similarity_check = (state == Qt.Checked)
+        if self.skip_similarity_check:
+            self.similarity_status_label.setText("⚠️ Similarity check disabled (presentation mode)")
+            self.similarity_status_label.setStyleSheet("color: orange; font-weight: bold;")
+        else:
+            self.similarity_status_label.setText("Will check on registration")
+            self.similarity_status_label.setStyleSheet("")
+
 
     def check_image_quality(self, image_path):
         """
@@ -790,7 +1155,8 @@ class RegisterStudentWindow(QMainWindow):
     def reset_form(self):
         """Reset all form elements for registering another student"""
         # Reset text inputs
-        self.name_input.clear()
+        self.fname_input.clear()
+        self.lname_input.clear()
         self.id_input.clear()
         
         # Reset image display
@@ -809,6 +1175,10 @@ class RegisterStudentWindow(QMainWindow):
 
     def is_similar_image(self, new_image_path, conn, face_only_path=None):
         """Check if image is similar to existing ones using dynamic threshold and face priority"""
+
+        if self.skip_similarity_check:
+            print("Skipping similarity check (presentation mode active)")
+            return False, None, None, "Similarity check bypassed (presentation mode)"
         # Add a check at the beginning of this method
         if hasattr(self, 'skip_similarity_check') and self.skip_similarity_check:
             return False, None, None, None  # Skip similarity check completely
@@ -924,9 +1294,17 @@ class RegisterStudentWindow(QMainWindow):
         """Register student with comprehensive duplicate checking"""
         if not self.validate_name() or not self.validate_student_id():
             return  # Stop if validation fails
+        if not self.captured_image_path:
+            QMessageBox.warning(self, "Missing Photo", "Please capture or upload a photo first")
+            return
+        
+        # Make sure all previous tabs are valid
+        if not self.validate_personal_info() or not self.validate_academic_info():
+            return
         
         # Get all input values
-        student_name = self.name_input.text().strip()
+        first_name = self.fname_input.text().strip()
+        last_name = self.lname_input.text().strip()
         student_id = self.id_input.text().strip()
         
         # Get selected course
@@ -946,7 +1324,7 @@ class RegisterStudentWindow(QMainWindow):
         sanitized_id = student_id.replace('/', '_')
 
         # Validate inputs
-        if not student_name or not student_id:
+        if not first_name or not student_id or not last_name:
             QMessageBox.warning(self, "Incomplete Data", "Please fill all fields")
             return
         
@@ -1095,12 +1473,12 @@ class RegisterStudentWindow(QMainWindow):
             
             # Insert student into database with all additional fields
             cursor.execute("""
-                INSERT INTO students (name, student_id, image_path, image_hash, face_encoding, 
-                                    face_only_path, course, year_of_study, email, phone, 
-                                    current_semester, face_encoding_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (student_name, student_id, final_image_path, image_hash, encoding_blob, 
-                face_image_path, course_code, year, email, phone, semester, encoding_path))
+                 INSERT INTO students (fname, lname, student_id, image_path, image_hash, face_encoding, 
+                                face_only_path, course, year_of_study, email, phone, 
+                                current_semester, face_encoding_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (first_name, last_name, student_id, final_image_path, image_hash, encoding_blob, 
+            face_image_path, course_code, year, email, phone, semester, encoding_path))
                         
             # Insert student course enrollment
             cursor.execute(

@@ -869,7 +869,7 @@ class HomeWindow(QWidget):
 
             # Updated query to match the schema
             cursor.execute("""
-                SELECT s.name, a.status, a.timestamp, c.course_name, cl.class_name 
+                SELECT s.fname, s.lname, a.status, a.timestamp, c.course_name, cl.class_name 
                 FROM attendance a
                 JOIN students s ON a.student_id = s.student_id
                 JOIN class_sessions cs ON a.session_id = cs.session_id

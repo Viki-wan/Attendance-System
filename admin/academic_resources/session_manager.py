@@ -329,33 +329,39 @@ class SessionManager(QWidget):
             current_datetime = datetime.now()
             current_date = current_datetime.strftime('%Y-%m-%d')
             current_time = current_datetime.strftime('%H:%M:%S')
-            
+
             conn = sqlite3.connect(DATABASE_PATH)
             cursor = conn.cursor()
-            
-            # Update sessions that have ended to 'completed'
+
+            # 1. Mark as 'missed' any session where end_time < now and status is 'scheduled'
             cursor.execute("""
-                UPDATE class_sessions 
-                SET status = 'completed' 
+                UPDATE class_sessions
+                SET status = 'missed'
                 WHERE (date < ? OR (date = ? AND end_time < ?))
                 AND status = 'scheduled'
             """, (current_date, current_date, current_time))
-            
-            # Update sessions that are currently in progress
+
+            # 2. Mark as 'in-progress' any session where start_time <= now <= end_time and status is 'scheduled'
             cursor.execute("""
-                UPDATE class_sessions 
-                SET status = 'in-progress' 
-                WHERE date = ? 
-                AND start_time <= ? 
+                UPDATE class_sessions
+                SET status = 'in-progress'
+                WHERE date = ?
+                AND start_time <= ?
                 AND end_time >= ?
                 AND status = 'scheduled'
             """, (current_date, current_time, current_time))
-            
+
+            # 3. Mark as 'completed' any session where end_time < now and status is 'in-progress'
+            cursor.execute("""
+                UPDATE class_sessions
+                SET status = 'completed'
+                WHERE (date < ? OR (date = ? AND end_time < ?))
+                AND status = 'in-progress'
+            """, (current_date, current_date, current_time))
+
             conn.commit()
             conn.close()
-            
-            print(f"✅ Updated session statuses successfully")
-            
+
         except Exception as e:
             print(f"❌ Error updating session statuses: {e}")
             QMessageBox.warning(self, "Database Error", f"Could not update session statuses: {e}")

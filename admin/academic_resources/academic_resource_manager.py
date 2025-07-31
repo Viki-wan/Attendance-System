@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QApplication,
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QTimer, QRect
 from PyQt5.QtGui import QIcon, QFont, QColor, QPainter, QBrush, QPen, QLinearGradient, QPixmap
 from config.utils_constants import DATABASE_PATH
+from admin.academic_resources.student_manager import StudentManager
 from admin.academic_resources.get_stats import DashboardStatsManager
 from admin.academic_resources.class_manager import ClassManager
 from admin.academic_resources.session_manager import SessionManager
@@ -184,6 +185,7 @@ class AcademicResourceManager(QWidget):
         self.instructor_manager = InstructorManager()
         self.schedule_manager = ClassManager()
         self.sessions_manager = SessionManager()
+        self.student_manager = StudentManager()
         
         # Create dashboard cards
         self.create_dashboard()
@@ -267,6 +269,15 @@ class AcademicResourceManager(QWidget):
         row2_layout.addWidget(schedule_card)
         
         dashboard_layout.addWidget(row2_container)
+
+        student_card = DashboardCard(
+            "Students", "👨‍🎓", 
+            "View and filter student information by course and year",
+            DashboardStatsManager.get_student_stats(), "#36b9cc",
+            card_type="Student"  # Unique identifier for student card
+        )
+        student_card.mousePressEvent = lambda e: self.show_manager(self.student_manager, "Students")
+        row2_layout.addWidget(student_card)
         
         # Quick actions section
         actions_section = QWidget()
@@ -361,6 +372,7 @@ class AcademicResourceManager(QWidget):
         self.instructor_manager.hide()
         self.schedule_manager.hide()
         self.sessions_manager.hide()
+        self.student_manager.hide()
         
         # Clear any existing content
         while self.content_layout.count():
@@ -382,6 +394,7 @@ class AcademicResourceManager(QWidget):
         self.instructor_manager.hide()
         self.schedule_manager.hide()
         self.sessions_manager.hide()
+        self.student_manager.hide()
         
         # Clear existing content
         while self.content_layout.count():

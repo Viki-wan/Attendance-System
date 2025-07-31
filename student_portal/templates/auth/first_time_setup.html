@@ -1,0 +1,180 @@
+{% extends 'layout.html' %}
+
+{% block title %}Create Password - Student Portal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Welcome, {{ student_name }}!</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">As this is your first login, you need to create a secure password for your account.</p>
+                
+                <form method="post">
+                    <div class="mb-3">
+                        <label for="password" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                        
+                        <div class="mt-2">
+                            <label for="passwordStrength" class="form-label">Password Strength</label>
+                            <div class="progress">
+                                <div id="passwordStrength" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <small id="passwordFeedback" class="form-text text-muted"></small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        <small id="passwordMatch" class="form-text"></small>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="showPassword">
+                            <label class="form-check-label" for="showPassword">
+                                Show Password
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            Password Requirements
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">At least 8 characters long</li>
+                            <li class="list-group-item">Contain uppercase and lowercase letters</li>
+                            <li class="list-group-item">Include at least one number</li>
+                            <li class="list-group-item">Include at least one special character (!@#$%^&*)</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" id="submitBtn" class="btn btn-primary" disabled>Create Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Password strength checker
+    function checkPasswordStrength(password) {
+        let score = 0;
+        let feedback = [];
+        
+        // Length check
+        if (password.length >= 8) {
+            score += 20;
+            if (password.length >= 12) {
+                score += 20;
+            }
+        } else {
+            feedback.push("Password should be at least 8 characters");
+        }
+        
+        // Complexity checks
+        if (/[A-Z]/.test(password)) {
+            score += 15;
+        } else {
+            feedback.push("Add uppercase letters");
+        }
+        
+        if (/[a-z]/.test(password)) {
+            score += 15;
+        } else {
+            feedback.push("Add lowercase letters");
+        }
+        
+        if (/[0-9]/.test(password)) {
+            score += 15;
+        } else {
+            feedback.push("Add numbers");
+        }
+        
+        if (/[^A-Za-z0-9]/.test(password)) {
+            score += 15;
+        } else {
+            feedback.push("Add special characters (!@#$%^&*)");
+        }
+        
+        // Determine color
+        let color = "bg-danger";
+        if (score >= 80) {
+            color = "bg-success";
+        } else if (score >= 50) {
+            color = "bg-warning";
+        }
+        
+        return { score, color, feedback };
+    }
+    
+    // Update UI components when password changes
+    document.getElementById('password').addEventListener('input', function() {
+        const password = this.value;
+        const { score, color, feedback } = checkPasswordStrength(password);
+        
+        // Update progress bar
+        const strengthBar = document.getElementById('passwordStrength');
+        strengthBar.style.width = score + '%';
+        strengthBar.className = `progress-bar ${color}`;
+        
+        // Update feedback
+        const feedbackEl = document.getElementById('passwordFeedback');
+        if (feedback.length > 0) {
+            feedbackEl.textContent = "Suggestions: " + feedback.join(", ");
+        } else {
+            feedbackEl.textContent = "Excellent password!";
+        }
+        
+        // Check if passwords match
+        checkPasswordsMatch();
+    });
+    
+    // Check if passwords match
+    function checkPasswordsMatch() {
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        const matchEl = document.getElementById('passwordMatch');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if (!confirmPassword) {
+            matchEl.textContent = "";
+            submitBtn.disabled = true;
+            return;
+        }
+        
+        if (password === confirmPassword) {
+            matchEl.textContent = "✓ Passwords match";
+            matchEl.className = "form-text text-success";
+            
+            // Enable submit button if password is strong enough
+            const { score } = checkPasswordStrength(password);
+            submitBtn.disabled = !(score >= 50);
+        } else {
+            matchEl.textContent = "✗ Passwords don't match";
+            matchEl.className = "form-text text-danger";
+            submitBtn.disabled = true;
+        }
+    }
+    
+    // Check match when confirm password changes
+    document.getElementById('confirm_password').addEventListener('input', checkPasswordsMatch);
+    
+    // Toggle password visibility
+    document.getElementById('showPassword').addEventListener('change', function() {
+        const passwordInput = document.getElementById('password');
+        const confirmInput = document.getElementById('confirm_password');
+        
+        passwordInput.type = this.checked ? 'text' : 'password';
+        confirmInput.type = this.checked ? 'text' : 'password';
+    });
+</script>
+{% endblock %}
