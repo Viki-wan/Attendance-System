@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% block title %}Video Tutorials{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-video me-2"></i>
+                    Video Tutorials
+                </h2>
+                <a href="{{ url_for('help.index') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Back to Help Center
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filter -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" class="form-control" id="tutorialSearch" 
+                       placeholder="Search tutorials...">
+            </div>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" id="categoryFilter">
+                <option value="all">All Categories</option>
+                <option value="getting-started">Getting Started</option>
+                <option value="sessions">Sessions</option>
+                <option value="attendance">Attendance</option>
+                <option value="reports">Reports</option>
+                <option value="advanced">Advanced</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Tutorial Categories -->
+    <div class="row">
+        <!-- Getting Started -->
+        <div class="col-12 mb-4">
+            <h3 class="mb-3">
+                <i class="fas fa-play-circle text-primary me-2"></i>
+                Getting Started
+            </h3>
+            <div class="row tutorial-category" data-category="getting-started">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-primary"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">First Login & Setup</h5>
+                            <p class="card-text text-muted">
+                                Learn how to log in for the first time and set up your account.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-primary">5 min</span>
+                                <button class="btn btn-sm btn-outline-primary" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-primary"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Dashboard Overview</h5>
+                            <p class="card-text text-muted">
+                                Navigate through your dashboard and understand key features.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-primary">8 min</span>
+                                <button class="btn btn-sm btn-outline-primary" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-primary"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Profile Management</h5>
+                            <p class="card-text text-muted">
+                                Update your profile, change password, and manage preferences.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-primary">6 min</span>
+                                <button class="btn btn-sm btn-outline-primary" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Management -->
+        <div class="col-12 mb-4">
+            <h3 class="mb-3">
+                <i class="fas fa-calendar text-success me-2"></i>
+                Session Management
+            </h3>
+            <div class="row tutorial-category" data-category="sessions">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-success"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Creating Your First Session</h5>
+                            <p class="card-text text-muted">
+                                Step-by-step guide to creating and scheduling a class session.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-success">10 min</span>
+                                <button class="btn btn-sm btn-outline-success" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-success"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Bulk Session Creation</h5>
+                            <p class="card-text text-muted">
+                                Create multiple sessions at once using the bulk creation tool.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-success">12 min</span>
+                                <button class="btn btn-sm btn-outline-success" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-success"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Managing Timetables</h5>
+                            <p class="card-text text-muted">
+                                Set up and manage your weekly class timetable.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-success">15 min</span>
+                                <button class="btn btn-sm btn-outline-success" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Tracking -->
+        <div class="col-12 mb-4">
+            <h3 class="mb-3">
+                <i class="fas fa-check-circle text-info me-2"></i>
+                Attendance Tracking
+            </h3>
+            <div class="row tutorial-category" data-category="attendance">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-info"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Face Recognition Setup</h5>
+                            <p class="card-text text-muted">
+                                Configure and use the face recognition system for attendance.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-info">14 min</span>
+                                <button class="btn btn-sm btn-outline-info" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-info"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Manual Attendance Marking</h5>
+                            <p class="card-text text-muted">
+                                Mark attendance manually when face recognition isn't available.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-info">8 min</span>
+                                <button class="btn btn-sm btn-outline-info" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-info"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Correcting Attendance</h5>
+                            <p class="card-text text-muted">
+                                Learn how to review and correct attendance records.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-info">7 min</span>
+                                <button class="btn btn-sm btn-outline-info" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports & Analytics -->
+        <div class="col-12 mb-4">
+            <h3 class="mb-3">
+                <i class="fas fa-chart-bar text-warning me-2"></i>
+                Reports & Analytics
+            </h3>
+            <div class="row tutorial-category" data-category="reports">
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-warning"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Generating Reports</h5>
+                            <p class="card-text text-muted">
+                                Create comprehensive attendance reports for your classes.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-warning">11 min</span>
+                                <button class="btn btn-sm btn-outline-warning" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-warning"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Understanding Analytics</h5>
+                            <p class="card-text text-muted">
+                                Interpret attendance statistics and identify trends.
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-warning">13 min</span>
+                                <button class="btn btn-sm btn-outline-warning" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm tutorial-card">
+                        <div class="ratio ratio-16x9">
+                            <div class="placeholder-video">
+                                <i class="fas fa-play-circle fa-3x text-warning"></i>
+                                <p class="mt-2 mb-0">Video Tutorial</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Exporting Data</h5>
+                            <p class="card-text text-muted">
+                                Export attendance data in various formats (PDF, Excel, CSV).
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-warning">6 min</span>
+                                <button class="btn btn-sm btn-outline-warning" disabled>
+                                    <i class="fas fa-play me-1"></i>
+                                    Coming Soon
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Coming Soon Notice -->
+    <div class="alert alert-info mt-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Coming Soon!</strong> Video tutorials are currently in production. In the meantime, check out our 
+        <a href="{{ url_for('help.documentation') }}" class="alert-link">comprehensive documentation</a> or 
+        <a href="{{ url_for('help.faq') }}" class="alert-link">FAQ section</a>.
+    </div>
+</div>
+
+<style>
+.placeholder-video {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    height: 100%;
+}
+
+.tutorial-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tutorial-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+}
+
+.ratio-16x9::before {
+    padding-top: 56.25%;
+}
+</style>
+
+<script>
+// Search functionality
+document.getElementById('tutorialSearch').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const cards = document.querySelectorAll('.tutorial-card');
+    
+    cards.forEach(card => {
+        const title = card.querySelector('.card-title').textContent.toLowerCase();
+        const description = card.querySelector('.card-text').textContent.toLowerCase();
+        const shouldShow = title.includes(searchTerm) || description.includes(searchTerm);
+        
+        card.closest('.col-md-4').style.display = shouldShow ? '' : 'none';
+    });
+});
+
+// Category filter
+document.getElementById('categoryFilter').addEventListener('change', function(e) {
+    const category = e.target.value;
+    const categories = document.querySelectorAll('.tutorial-category');
+    
+    if (category === 'all') {
+        categories.forEach(cat => {
+            cat.closest('.col-12').style.display = '';
+        });
+    } else {
+        categories.forEach(cat => {
+            const shouldShow = cat.dataset.category === category;
+            cat.closest('.col-12').style.display = shouldShow ? '' : 'none';
+        });
+    }
+});
+</script>
+{% endblock %}

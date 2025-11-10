@@ -1,0 +1,12 @@
+<footer class="text-center py-4" style="background: var(--light-bg); border-top: 1px solid var(--border-color); margin-top: auto;">
+    <div class="container">
+        <p class="text-muted small mb-2">
+            <i class="fas fa-copyright"></i> {{ current_year|default(2024) }} Face Recognition Attendance System. All rights reserved.
+        </p>
+        <p class="text-muted small mb-0">
+            <a href="#" class="text-decoration-none text-muted">Privacy Policy</a> • 
+            <a href="#" class="text-decoration-none text-muted">Terms of Service</a> • 
+            <a href="{{ url_for('help.index') if current_user.is_authenticated else '#' }}" class="text-decoration-none text-muted">Help</a>
+        </p>
+    </div>
+</footer>

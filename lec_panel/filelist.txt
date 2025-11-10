@@ -1,0 +1,181 @@
+Folder PATH listing
+Volume serial number is ECAC-75D8
+C:.
+³   .env
+³   celery_worker.py\
+³   run.py
+³   
+ÃÄÄÄapp
+³   ³   socket_io_events.py
+³   ³   __init__.py
+³   ³   
+³   ÃÄÄÄdecorators
+³   ³   ³   auth.py
+³   ³   ³   
+³   ³   ÀÄÄÄ__pycache__
+³   ³           auth.cpython-311.pyc
+³   ³           
+³   ÃÄÄÄmiddleware
+³   ³       activity_logger.py
+³   ³       rate_limiter.py
+³   ³       
+³   ÃÄÄÄmodels
+³   ³   ³   activity_log.py
+³   ³   ³   attendance.py
+³   ³   ³   class_model.py
+³   ³   ³   course.py
+³   ³   ³   FolderList.txt
+³   ³   ³   holidays.py
+³   ³   ³   lecturer_preferences.py
+³   ³   ³   notification.py
+³   ³   ³   session.py
+³   ³   ³   session_dismissal.py
+³   ³   ³   settings.py
+³   ³   ³   student.py
+³   ³   ³   system_metrics.py
+³   ³   ³   timetable.py
+³   ³   ³   user.py
+³   ³   ³   __init__.py
+³   ³   ³   
+³   ³   ÀÄÄÄ__pycache__
+³   ³           activity_log.cpython-311.pyc
+³   ³           attendance.cpython-311.pyc
+³   ³           class_model.cpython-311.pyc
+³   ³           course.cpython-311.pyc
+³   ³           lecturer_preferences.cpython-311.pyc
+³   ³           notification.cpython-311.pyc
+³   ³           session.cpython-311.pyc
+³   ³           session_dismissal.cpython-311.pyc
+³   ³           settings.cpython-311.pyc
+³   ³           student.cpython-311.pyc
+³   ³           timetable.cpython-311.pyc
+³   ³           user.cpython-311.pyc
+³   ³           __init__.cpython-311.pyc
+³   ³           
+³   ÃÄÄÄroutes
+³   ³   ³   auth.py
+³   ³   ³   
+³   ³   ÃÄÄÄapi
+³   ³   ³   ³   face_recognition.py
+³   ³   ³   ³   v1.py
+³   ³   ³   ³   
+³   ³   ³   ÃÄÄÄdocs
+³   ³   ³   ÀÄÄÄv1
+³   ³   ³           attendance.py
+³   ³   ³           auth.py
+³   ³   ³           classes.py
+³   ³   ³           dashboard.py
+³   ³   ³           reports.py
+³   ³   ³           sessions.py
+³   ³   ³           students.py
+³   ³   ³           
+³   ³   ÃÄÄÄlecturer
+³   ³   ³   ³   attendance.py
+³   ³   ³   ³   dashboard.py
+³   ³   ³   ³   dismissals.py
+³   ³   ³   ³   preferences.py
+³   ³   ³   ³   reports.py
+³   ³   ³   ³   sessions.py
+³   ³   ³   ³   timetable.py
+³   ³   ³   ³   
+³   ³   ³   ÀÄÄÄ__pycache__
+³   ³   ³           attendance.cpython-311.pyc
+³   ³   ³           dashboard.cpython-311.pyc
+³   ³   ³           preferences.cpython-311.pyc
+³   ³   ³           reports.cpython-311.pyc
+³   ³   ³           sessions.cpython-311.pyc
+³   ³   ³           
+³   ³   ÀÄÄÄ__pycache__
+³   ³           auth.cpython-311.pyc
+³   ³           
+³   ÃÄÄÄservices
+³   ³   ³   auth_service.py
+³   ³   ³   camera_service.py
+³   ³   ³   dashboard_service.py
+³   ³   ³   face_recognition_service.py
+³   ³   ³   notification_service.py
+³   ³   ³   preferences_service.py
+³   ³   ³   report_service.py
+³   ³   ³   scheduling_service.py
+³   ³   ³   session_service.py
+³   ³   ³   
+³   ³   ÀÄÄÄ__pycache__
+³   ³           auth_service.cpython-311.pyc
+³   ³           camera_service.cpython-311.pyc
+³   ³           dashboard_service.cpython-311.pyc
+³   ³           face_recognition_service.cpython-311.pyc
+³   ³           notification_service.cpython-311.pyc
+³   ³           preferences_service.cpython-311.pyc
+³   ³           report_service.cpython-311.pyc
+³   ³           session_service.cpython-311.pyc
+³   ³           
+³   ÃÄÄÄstatic
+³   ³   ÀÄÄÄjs
+³   ³           attendance_realtime.js
+³   ³           camera_handler.js
+³   ³           notification_handler.js
+³   ³           progress_tracker.js
+³   ³           
+³   ÃÄÄÄtasks
+³   ³   ³   face_processing.py
+³   ³   ³   
+³   ³   ÀÄÄÄ__pycache__
+³   ³           face_processing.cpython-311.pyc
+³   ³           
+³   ÃÄÄÄtemplates
+³   ³   ³   base.html
+³   ³   ³   
+³   ³   ÃÄÄÄauth
+³   ³   ³       first_time_setup.html
+³   ³   ³       login.html
+³   ³   ³       
+³   ³   ÀÄÄÄlecturer
+³   ³           bulk_create_sessions.html
+³   ³           correct_attendance.html
+³   ³           create_session.html
+³   ³           dashboard.html
+³   ³           dismiss_session.html
+³   ³           live_attendance.html
+³   ³           reports.html
+³   ³           sessions.html
+³   ³           session_detail.html
+³   ³           statistics.html
+³   ³           today's_session.html
+³   ³           upcoming_sessions.html
+³   ³           update_session.html
+³   ³           
+³   ÃÄÄÄutils
+³   ³   ³   api_response.py
+³   ³   ³   cache_manager.py
+³   ³   ³   excel_generator.py
+³   ³   ³   file_manager.py
+³   ³   ³   jwt_manager.py
+³   ³   ³   pdf_generator.py
+³   ³   ³   response.py
+³   ³   ³   swagger_config.py
+³   ³   ³   
+³   ³   ÀÄÄÄ__pycache__
+³   ³           excel_generator.cpython-311.pyc
+³   ³           pdf_generator.cpython-311.pyc
+³   ³           response.cpython-311.pyc
+³   ³           swagger_config.cpython-311.pyc
+³   ³           
+³   ÀÄÄÄ__pycache__
+³           __init__.cpython-311.pyc
+³           
+ÃÄÄÄconfig
+³   ³   config.py
+³   ³   constants.py
+³   ³   __init__.py
+³   ³   
+³   ÀÄÄÄ__pycache__
+³           config.cpython-311.pyc
+³           constants.cpython-311.pyc
+³           __init__.cpython-311.pyc
+³           
+ÃÄÄÄlogs
+ÀÄÄÄuploads
+    ÃÄÄÄface_encodings
+    ÃÄÄÄface_only
+    ÃÄÄÄreports
+    ÀÄÄÄstudent_photos

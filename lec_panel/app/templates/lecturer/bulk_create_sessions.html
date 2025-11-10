@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Create Sessions from Timetable{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-calendar-plus"></i> Bulk Create Sessions</h2>
+                <a href="{{ url_for('lecturer_sessions.list_sessions') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Sessions
+                </a>
+            </div>
+
+            <!-- Info Alert -->
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle"></i>
+                <strong>Automatic Session Generation</strong><br>
+                This tool automatically creates sessions based on your class timetables. 
+                It will skip holidays and avoid conflicts.
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" id="bulkCreateForm">
+                        <!-- Date Range -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="start_date" class="form-label fw-bold">
+                                    Start Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" 
+                                       class="form-control" 
+                                       id="start_date" 
+                                       name="start_date" 
+                                       required
+                                       min="{{ today }}"
+                                       onchange="updatePreview()">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_date" class="form-label fw-bold">
+                                    End Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" 
+                                       class="form-control" 
+                                       id="end_date" 
+                                       name="end_date" 
+                                       required
+                                       onchange="updatePreview()">
+                            </div>
+                        </div>
+
+                        <!-- Class Selection -->
+                        <div class="mb-4">
+                            <label for="class_id" class="form-label fw-bold">
+                                Class (Optional)
+                            </label>
+                            <select class="form-select" id="class_id" name="class_id" onchange="updatePreview()">
+                                <option value="">All Classes</option>
+                                {% for class in classes %}
+                                <option value="{{ class.class_id }}">
+                                    {{ class.class_name }} - {{ class.course.course_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                Leave blank to generate sessions for all your classes
+                            </div>
+                        </div>
+
+                        <!-- Options -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Options</label>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="skip_holidays" 
+                                       name="skip_holidays"
+                                       checked>
+                                <label class="form-check-label" for="skip_holidays">
+                                    Skip holidays automatically
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="skip_existing" 
+                                       name="skip_existing"
+                                       checked>
+                                <label class="form-check-label" for="skip_existing">
+                                    Skip dates with existing sessions
+                                </label>
+                            </div>
+
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="skip_weekends" 
+                                       name="skip_weekends">
+                                <label class="form-check-label" for="skip_weekends">
+                                    Skip weekends (Saturday & Sunday)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Preview Button -->
+                        <div class="mb-4 text-center">
+                            <button type="button" 
+                                    class="btn btn-outline-primary btn-lg" 
+                                    onclick="updatePreview()">
+                                <i class="bi bi-eye"></i> Preview Sessions to be Created
+                            </button>
+                        </div>
+
+                        <!-- Preview Results -->
+                        <div id="previewSection" class="d-none">
+                            <hr class="my-4">
+                            
+                            <h5 class="mb-3">
+                                <i class="bi bi-list-check"></i> Preview
+                                <span id="previewCount" class="badge bg-primary"></span>
+                            </h5>
+
+                            <div id="previewLoading" class="text-center py-4 d-none">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Calculating sessions...</p>
+                            </div>
+
+                            <div id="previewContent"></div>
+
+                            <div id="holidaysWarning" class="alert alert-warning d-none mt-3">
+                                <i class="bi bi-calendar-x"></i>
+                                <strong>Holidays in Range:</strong>
+                                <ul id="holidaysList" class="mb-0 mt-2"></ul>
+                            </div>
+
+                            <div id="conflictsWarning" class="alert alert-danger d-none mt-3">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Conflicts Detected:</strong>
+                                <ul id="conflictsList" class="mb-0 mt-2"></ul>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('lecturer_sessions.list_sessions') }}" 
+                               class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg" id="submitBtn" disabled>
+                                <i class="bi bi-check-circle"></i> Create <span id="submitCount">0</span> Sessions
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="row mt-4">
+                <div class="col-md-4">
+                    <div class="card border-info">
+                        <div class="card-body text-center">
+                            <i class="bi bi-calendar-week text-info fs-1"></i>
+                            <h5 class="mt-2">Smart Scheduling</h5>
+                            <p class="text-muted small mb-0">
+                                Automatically follows your timetable patterns
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-warning">
+                        <div class="card-body text-center">
+                            <i class="bi bi-shield-check text-warning fs-1"></i>
+                            <h5 class="mt-2">Conflict Detection</h5>
+                            <p class="text-muted small mb-0">
+                                Prevents overlapping sessions automatically
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-success">
+                        <div class="card-body text-center">
+                            <i class="bi bi-clock-history text-success fs-1"></i>
+                            <h5 class="mt-2">Time Saver</h5>
+                            <p class="text-muted small mb-0">
+                                Create weeks or months of sessions instantly
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updatePreview() {
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+    const classId = document.getElementById('class_id').value;
+
+    if (!startDate || !endDate) {
+        return;
+    }
+
+    if (startDate > endDate) {
+        alert('End date must be after start date');
+        return;
+    }
+
+    const previewSection = document.getElementById('previewSection');
+    const previewLoading = document.getElementById('previewLoading');
+    const previewContent = document.getElementById('previewContent');
+
+    previewSection.classList.remove('d-none');
+    previewLoading.classList.remove('d-none');
+    previewContent.innerHTML = '';
+    document.getElementById('submitBtn').disabled = true;
+
+    // Prepare request data
+    const formData = new FormData(document.getElementById('bulkCreateForm'));
+
+    fetch('/lecturer/sessions/api/preview-bulk-create', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        previewLoading.classList.add('d-none');
+
+        if (data.success) {
+            const sessions = data.sessions;
+            document.getElementById('previewCount').textContent = `${sessions.length} sessions`;
+            document.getElementById('submitCount').textContent = sessions.length;
+            
+            if (sessions.length > 0) {
+                document.getElementById('submitBtn').disabled = false;
+
+                // Group by class
+                const grouped = {};
+                sessions.forEach(session => {
+                    if (!grouped[session.class_name]) {
+                        grouped[session.class_name] = [];
+                    }
+                    grouped[session.class_name].push(session);
+                });
+
+                let html = '<div class="accordion" id="previewAccordion">';
+                let index = 0;
+                for (const [className, classSessions] of Object.entries(grouped)) {
+                    html += `
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button ${index > 0 ? 'collapsed' : ''}" 
+                                        type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#collapse${index}">
+                                    ${className} <span class="badge bg-primary ms-2">${classSessions.length}</span>
+                                </button>
+                            </h2>
+                            <div id="collapse${index}" 
+                                 class="accordion-collapse collapse ${index === 0 ? 'show' : ''}"
+                                 data-bs-parent="#previewAccordion">
+                                <div class="accordion-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Day</th>
+                                                    <th>Time</th>
+                                                    <th>Duration</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>`;
+                    
+                    classSessions.forEach(session => {
+                        html += `
+                            <tr>
+                                <td>${session.date}</td>
+                                <td>${session.day_name}</td>
+                                <td>${session.start_time} - ${session.end_time}</td>
+                                <td>${session.duration} minutes</td>
+                            </tr>`;
+                    });
+                    
+                    html += `
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
+                    index++;
+                }
+                html += '</div>';
+                previewContent.innerHTML = html;
+            } else {
+                previewContent.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-circle"></i>
+                        No sessions to create for the selected criteria.
+                    </div>`;
+            }
+
+            // Show holidays
+            if (data.holidays && data.holidays.length > 0) {
+                document.getElementById('holidaysWarning').classList.remove('d-none');
+                let holidaysHtml = '';
+                data.holidays.forEach(holiday => {
+                    holidaysHtml += `<li>${holiday.date}: ${holiday.name}</li>`;
+                });
+                document.getElementById('holidaysList').innerHTML = holidaysHtml;
+            } else {
+                document.getElementById('holidaysWarning').classList.add('d-none');
+            }
+
+            // Show conflicts
+            if (data.conflicts && data.conflicts.length > 0) {
+                document.getElementById('conflictsWarning').classList.remove('d-none');
+                let conflictsHtml = '';
+                data.conflicts.forEach(conflict => {
+                    conflictsHtml += `<li>${conflict}</li>`;
+                });
+                document.getElementById('conflictsList').innerHTML = conflictsHtml;
+            } else {
+                document.getElementById('conflictsWarning').classList.add('d-none');
+            }
+        } else {
+            previewContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i>
+                    Error: ${data.message}
+                </div>`;
+        }
+    })
+    .catch(error => {
+        previewLoading.classList.add('d-none');
+        previewContent.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-x-circle"></i>
+                Error loading preview. Please try again.
+            </div>`;
+        console.error('Error:', error);
+    });
+}
+
+// Set today's date as minimum
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('start_date').min = today;
+    
+    // Set default date range (next 4 weeks)
+    document.getElementById('start_date').value = today;
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 28);
+    document.getElementById('end_date').value = endDate.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

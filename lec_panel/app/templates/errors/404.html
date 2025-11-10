@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}404 - Page Not Found{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+        <div class="col-md-8 col-lg-6 text-center">
+            <div class="error-container">
+                <!-- Error Icon -->
+                <div class="mb-4">
+                    <i class="fas fa-search text-info" style="font-size: 120px;"></i>
+                </div>
+                
+                <!-- Error Code -->
+                <h1 class="display-1 fw-bold text-primary mb-3">404</h1>
+                
+                <!-- Error Title -->
+                <h2 class="h3 mb-4">Page Not Found</h2>
+                
+                <!-- Error Description -->
+                <p class="text-muted mb-4 lead">
+                    Sorry, we couldn't find the page you're looking for.
+                    It might have been moved, deleted, or the URL might be incorrect.
+                </p>
+                
+                <!-- Search Suggestion Box -->
+                <div class="alert alert-light border mb-4">
+                    <p class="mb-2 text-muted small">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        <strong>Suggestion:</strong> Check the URL for typos or try navigating from the dashboard.
+                    </p>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                    <a href="javascript:history.back()" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Go Back
+                    </a>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>Go to Dashboard
+                    </a>
+                </div>
+                
+                <!-- Quick Links -->
+                {% if current_user.is_authenticated %}
+                <div class="mt-5 pt-4 border-top">
+                    <p class="text-muted small mb-3">Quick Links:</p>
+                    <div class="d-flex gap-3 justify-content-center flex-wrap">
+                        <a href="{{ url_for('dashboard.index') }}" class="text-decoration-none">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                        <a href="{{ url_for('lecturer_sessions.list_sessions') }}" class="text-decoration-none">
+                            <i class="fas fa-calendar-alt me-1"></i>Sessions
+                        </a>
+                        <a href="{{ url_for('reports.index') }}" class="text-decoration-none">
+                            <i class="fas fa-chart-bar me-1"></i>Reports
+                        </a>
+                        <a href="{{ url_for('auth.profile') }}" class="text-decoration-none">
+                            <i class="fas fa-user me-1"></i>Profile
+                        </a>
+                        <a href="{{ url_for('help.index') }}" class="text-decoration-none">
+                            <i class="fas fa-question-circle me-1"></i>Help
+                        </a>
+                    </div>
+                </div>
+                {% else %}
+                <div class="mt-5 pt-4 border-top">
+                    <p class="text-muted small mb-3">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-sign-in-alt me-1"></i>Login to Continue
+                        </a>
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-container {
+        animation: fadeIn 0.5s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .error-container i.fa-search {
+        animation: bounce 1s ease-in-out infinite;
+    }
+    
+    @keyframes bounce {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-10px);
+        }
+    }
+</style>
+{% endblock %}

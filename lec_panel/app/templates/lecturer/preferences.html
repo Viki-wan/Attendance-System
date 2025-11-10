@@ -1,0 +1,751 @@
+{% extends "base.html" %}
+
+{% block title %}Preferences - Attendance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .preferences-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .preference-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        overflow: hidden;
+    }
+
+    .preference-card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .preference-card-body {
+        padding: 25px;
+    }
+
+    .preference-section {
+        margin-bottom: 25px;
+        padding-bottom: 25px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .preference-section:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .preference-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .preference-description {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 12px;
+    }
+
+    .theme-selector {
+        display: flex;
+        gap: 15px;
+        margin-top: 10px;
+    }
+
+    .theme-option {
+        flex: 1;
+        padding: 20px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+    }
+
+    .theme-option:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .theme-option.active {
+        border-color: #667eea;
+        background: #f0f4ff;
+    }
+
+    .theme-icon {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+
+    .theme-name {
+        font-weight: 600;
+        color: #333;
+    }
+
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    input:checked + .slider {
+        background-color: #667eea;
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+
+    .notification-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        margin-bottom: 10px;
+    }
+
+    .notification-info {
+        flex: 1;
+    }
+
+    .notification-title {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 4px;
+    }
+
+    .notification-desc {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .btn-action {
+        padding: 10px 25px;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.3s;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-save {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-reset {
+        background: #f8f9fa;
+        color: #666;
+        border: 1px solid #dee2e6;
+    }
+
+    .btn-reset:hover {
+        background: #e9ecef;
+    }
+
+    .btn-export {
+        background: #28a745;
+        color: white;
+    }
+
+    .btn-import {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid #e0e0e0;
+    }
+
+    .success-message {
+        background: #d4edda;
+        color: #155724;
+        padding: 12px 20px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        display: none;
+        animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .range-value {
+        display: inline-block;
+        background: #667eea;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        margin-left: 10px;
+    }
+
+    .import-section {
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        background: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .import-section:hover {
+        border-color: #667eea;
+        background: #f0f4ff;
+    }
+
+    .import-section input[type="file"] {
+        display: none;
+    }
+
+    @media (max-width: 768px) {
+        .theme-selector {
+            flex-direction: column;
+        }
+
+        .action-buttons {
+            flex-direction: column;
+        }
+
+        .btn-action {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preferences-container py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-2">⚙️ Preferences</h2>
+            <p class="text-muted">Customize your experience and notification settings</p>
+        </div>
+        <button class="btn btn-secondary" onclick="window.history.back()">
+            ← Back
+        </button>
+    </div>
+
+    <!-- Success Message -->
+    <div class="success-message" id="successMessage">
+        <i class="bi bi-check-circle"></i> <span id="successText">Preferences updated successfully!</span>
+    </div>
+
+    <!-- Flash Messages -->
+    {% include 'partials/_flash_messages.html' %}
+
+    <form id="preferencesForm" method="POST" action="{{ url_for('preferences.update') }}">
+        <!-- Appearance Settings -->
+        <div class="preference-card">
+            <div class="preference-card-header">
+                <i class="bi bi-palette"></i>
+                Appearance
+            </div>
+            <div class="preference-card-body">
+                <!-- Theme Selection -->
+                <div class="preference-section">
+                    <label class="preference-label">Theme</label>
+                    <p class="preference-description">Choose your preferred color scheme</p>
+                    <div class="theme-selector">
+                        <div class="theme-option {% if preferences.theme == 'light' %}active{% endif %}" 
+                             data-theme="light" onclick="selectTheme('light')">
+                            <div class="theme-icon">☀️</div>
+                            <div class="theme-name">Light</div>
+                        </div>
+                        <div class="theme-option {% if preferences.theme == 'dark' %}active{% endif %}" 
+                             data-theme="dark" onclick="selectTheme('dark')">
+                            <div class="theme-icon">🌙</div>
+                            <div class="theme-name">Dark</div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="theme" id="themeInput" value="{{ preferences.theme }}">
+                </div>
+
+                <!-- Dashboard Layout -->
+                <div class="preference-section">
+                    <label class="preference-label" for="dashboard_layout">Dashboard Layout</label>
+                    <p class="preference-description">Choose how your dashboard information is organized</p>
+                    <select class="form-select" name="dashboard_layout" id="dashboard_layout">
+                        <option value="default" {% if preferences.dashboard_layout == 'default' %}selected{% endif %}>
+                            Default (Balanced)
+                        </option>
+                        <option value="compact" {% if preferences.dashboard_layout == 'compact' %}selected{% endif %}>
+                            Compact (More Info)
+                        </option>
+                        <option value="spacious" {% if preferences.dashboard_layout == 'spacious' %}selected{% endif %}>
+                            Spacious (Easier Reading)
+                        </option>
+                        <option value="analytics" {% if preferences.dashboard_layout == 'analytics' %}selected{% endif %}>
+                            Analytics Focus
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Language -->
+                <div class="preference-section">
+                    <label class="preference-label" for="language">Language</label>
+                    <p class="preference-description">Select your preferred language</p>
+                    <select class="form-select" name="language" id="language">
+                        <option value="en" {% if preferences.language == 'en' %}selected{% endif %}>English</option>
+                        <option value="fr" {% if preferences.language == 'fr' %}selected{% endif %}>Français</option>
+                        <option value="es" {% if preferences.language == 'es' %}selected{% endif %}>Español</option>
+                        <option value="de" {% if preferences.language == 'de' %}selected{% endif %}>Deutsch</option>
+                        <option value="sw" {% if preferences.language == 'sw' %}selected{% endif %}>Kiswahili</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Behavior -->
+        <div class="preference-card">
+            <div class="preference-card-header">
+                <i class="bi bi-gear"></i>
+                System Behavior
+            </div>
+            <div class="preference-card-body">
+                <!-- Auto Refresh -->
+                <div class="preference-section">
+                    <label class="preference-label" for="auto_refresh_interval">
+                        Auto-Refresh Interval
+                        <span class="range-value" id="refreshValue">{{ preferences.auto_refresh_interval }}s</span>
+                    </label>
+                    <p class="preference-description">
+                        How often the dashboard automatically refreshes (10-300 seconds)
+                    </p>
+                    <input type="range" class="form-range" 
+                           name="auto_refresh_interval" 
+                           id="auto_refresh_interval" 
+                           min="10" max="300" step="10"
+                           value="{{ preferences.auto_refresh_interval }}"
+                           oninput="updateRangeValue('refresh', this.value)">
+                </div>
+
+                <!-- Default Session Duration -->
+                <div class="preference-section">
+                    <label class="preference-label" for="default_session_duration">
+                        Default Session Duration
+                        <span class="range-value" id="durationValue">{{ preferences.default_session_duration }} min</span>
+                    </label>
+                    <p class="preference-description">
+                        Default duration when creating new sessions (30-240 minutes)
+                    </p>
+                    <input type="range" class="form-range" 
+                           name="default_session_duration" 
+                           id="default_session_duration" 
+                           min="30" max="240" step="15"
+                           value="{{ preferences.default_session_duration }}"
+                           oninput="updateRangeValue('duration', this.value)">
+                </div>
+
+                <!-- Timezone -->
+                <div class="preference-section">
+                    <label class="preference-label" for="timezone">Timezone</label>
+                    <p class="preference-description">Your local timezone for scheduling</p>
+                    <select class="form-select" name="timezone" id="timezone">
+                        <option value="UTC" {% if preferences.timezone == 'UTC' %}selected{% endif %}>UTC (Coordinated Universal Time)</option>
+                        <option value="Africa/Nairobi" {% if preferences.timezone == 'Africa/Nairobi' %}selected{% endif %}>Africa/Nairobi (EAT)</option>
+                        <option value="Africa/Lagos" {% if preferences.timezone == 'Africa/Lagos' %}selected{% endif %}>Africa/Lagos (WAT)</option>
+                        <option value="Africa/Cairo" {% if preferences.timezone == 'Africa/Cairo' %}selected{% endif %}>Africa/Cairo (EET)</option>
+                        <option value="Europe/London" {% if preferences.timezone == 'Europe/London' %}selected{% endif %}>Europe/London (GMT/BST)</option>
+                        <option value="America/New_York" {% if preferences.timezone == 'America/New_York' %}selected{% endif %}>America/New_York (EST/EDT)</option>
+                        <option value="America/Los_Angeles" {% if preferences.timezone == 'America/Los_Angeles' %}selected{% endif %}>America/Los_Angeles (PST/PDT)</option>
+                        <option value="Asia/Dubai" {% if preferences.timezone == 'Asia/Dubai' %}selected{% endif %}>Asia/Dubai (GST)</option>
+                        <option value="Asia/Kolkata" {% if preferences.timezone == 'Asia/Kolkata' %}selected{% endif %}>Asia/Kolkata (IST)</option>
+                        <option value="Asia/Singapore" {% if preferences.timezone == 'Asia/Singapore' %}selected{% endif %}>Asia/Singapore (SGT)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="preference-card">
+            <div class="preference-card-header">
+                <i class="bi bi-bell"></i>
+                Notifications
+            </div>
+            <div class="preference-card-body">
+                <p class="text-muted mb-3">Control how and when you receive notifications</p>
+
+                <!-- Email Notifications -->
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <div class="notification-title">📧 Email Notifications</div>
+                        <div class="notification-desc">Receive notifications via email</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" 
+                               name="email_notifications" 
+                               {% if notification_settings.email_notifications %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Push Notifications -->
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <div class="notification-title">🔔 Push Notifications</div>
+                        <div class="notification-desc">Receive in-browser push notifications</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" 
+                               name="push_notifications" 
+                               {% if notification_settings.push_notifications %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Attendance Alerts -->
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <div class="notification-title">⚠️ Attendance Alerts</div>
+                        <div class="notification-desc">Get notified about low attendance rates</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" 
+                               name="attendance_alerts" 
+                               {% if notification_settings.attendance_alerts %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Session Reminders -->
+                <div class="notification-item">
+                    <div class="notification-info">
+                        <div class="notification-title">⏰ Session Reminders</div>
+                        <div class="notification-desc">Reminders before scheduled sessions</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" 
+                               name="session_reminders" 
+                               {% if notification_settings.session_reminders %}checked{% endif %}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <!-- Low Attendance Threshold -->
+                <div class="preference-section mt-4">
+                    <label class="preference-label" for="low_attendance_threshold">
+                        Low Attendance Threshold
+                        <span class="range-value" id="thresholdValue">{{ notification_settings.low_attendance_threshold }}%</span>
+                    </label>
+                    <p class="preference-description">
+                        Trigger alerts when attendance falls below this percentage
+                    </p>
+                    <input type="range" class="form-range" 
+                           name="low_attendance_threshold" 
+                           id="low_attendance_threshold" 
+                           min="50" max="100" step="5"
+                           value="{{ notification_settings.low_attendance_threshold }}"
+                           oninput="updateRangeValue('threshold', this.value)">
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Management -->
+        <div class="preference-card">
+            <div class="preference-card-header">
+                <i class="bi bi-database"></i>
+                Data Management
+            </div>
+            <div class="preference-card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <h6 class="mb-3">Export Preferences</h6>
+                        <p class="text-muted small">Save your preferences as a backup</p>
+                        <button type="button" class="btn btn-export w-100" onclick="exportPreferences()">
+                            <i class="bi bi-download"></i> Export Preferences
+                        </button>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <h6 class="mb-3">Import Preferences</h6>
+                        <p class="text-muted small">Restore preferences from a backup file</p>
+                        <div class="import-section" onclick="document.getElementById('importFile').click()">
+                            <i class="bi bi-upload" style="font-size: 2rem; color: #667eea;"></i>
+                            <p class="mb-0 mt-2">Click to upload JSON file</p>
+                            <input type="file" id="importFile" accept=".json" onchange="importPreferences(this)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button type="button" class="btn-action btn-reset" onclick="confirmReset()">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset to Defaults
+            </button>
+            <button type="submit" class="btn-action btn-save">
+                <i class="bi bi-check-circle"></i> Save Preferences
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Theme Selection
+    function selectTheme(theme) {
+        document.querySelectorAll('.theme-option').forEach(el => {
+            el.classList.remove('active');
+        });
+        document.querySelector(`.theme-option[data-theme="${theme}"]`).classList.add('active');
+        document.getElementById('themeInput').value = theme;
+    }
+
+    // Update Range Values
+    function updateRangeValue(type, value) {
+        const element = document.getElementById(`${type}Value`);
+        if (type === 'refresh') {
+            element.textContent = `${value}s`;
+        } else if (type === 'duration') {
+            element.textContent = `${value} min`;
+        } else if (type === 'threshold') {
+            element.textContent = `${value}%`;
+        }
+    }
+
+    // Form Submission
+    document.getElementById('preferencesForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        // Collect notification settings
+        const notificationSettings = {
+            email_notifications: formData.get('email_notifications') === 'on',
+            push_notifications: formData.get('push_notifications') === 'on',
+            attendance_alerts: formData.get('attendance_alerts') === 'on',
+            session_reminders: formData.get('session_reminders') === 'on',
+            low_attendance_threshold: parseInt(formData.get('low_attendance_threshold'))
+        };
+
+        // Convert FormData to object
+        const data = {
+            theme: formData.get('theme'),
+            dashboard_layout: formData.get('dashboard_layout'),
+            auto_refresh_interval: formData.get('auto_refresh_interval'),
+            default_session_duration: formData.get('default_session_duration'),
+            timezone: formData.get('timezone'),
+            language: formData.get('language')
+        };
+
+        // Save general preferences
+        fetch('{{ url_for("preferences.update") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Save notification settings separately
+                return fetch('{{ url_for("preferences.update_notifications") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(notificationSettings)
+                });
+            } else {
+                throw new Error(result.error || 'Failed to save preferences');
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showSuccess('All preferences saved successfully!');
+                // Reload page after 1.5 seconds to apply changes
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                throw new Error(result.error || 'Failed to save notification settings');
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    });
+
+    // Show Success Message
+    function showSuccess(message) {
+        const successDiv = document.getElementById('successMessage');
+        const successText = document.getElementById('successText');
+        successText.textContent = message;
+        successDiv.style.display = 'block';
+        
+        setTimeout(() => {
+            successDiv.style.display = 'none';
+        }, 5000);
+    }
+
+    // Export Preferences
+    function exportPreferences() {
+        fetch('{{ url_for("preferences.export") }}')
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    const dataStr = JSON.stringify(result.data, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `preferences_${result.instructor_id}_${new Date().toISOString().split('T')[0]}.json`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showSuccess('Preferences exported successfully!');
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                alert('Export failed: ' + error.message);
+            });
+    }
+
+    // Import Preferences
+    function importPreferences(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                fetch('{{ url_for("preferences.import_preferences") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({data: data})
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        showSuccess('Preferences imported successfully!');
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        alert('Error: ' + result.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Import failed: ' + error.message);
+                });
+            } catch (error) {
+                alert('Invalid JSON file: ' + error.message);
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset input
+        input.value = '';
+    }
+
+    // Reset to Defaults
+    function confirmReset() {
+        if (confirm('Are you sure you want to reset all preferences to default values? This action cannot be undone.')) {
+            fetch('{{ url_for("preferences.reset") }}', {
+                method: 'POST'
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json();
+                }
+            })
+            .then(result => {
+                if (result && !result.success) {
+                    alert('Error: ' + result.error);
+                }
+            })
+            .catch(error => {
+                alert('Reset failed: ' + error.message);
+            });
+        }
+    }
+
+    // Quick Theme Toggle (from navbar or other places)
+    window.toggleThemeQuick = function() {
+        fetch('{{ url_for("preferences.toggle_theme") }}', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Theme toggle failed:', error);
+        });
+    };
+</script>
+{% endblock %}

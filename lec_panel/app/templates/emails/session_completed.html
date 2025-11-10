@@ -1,0 +1,54 @@
+{% extends 'emails/base.html' %}
+
+{% block header_title %}Session Completed{% endblock %}
+
+{% block content %}
+<p>Hello <strong>{{ instructor.instructor_name }}</strong>,</p>
+
+<p>Your class session has been completed successfully.</p>
+
+<div class="success-box">
+    <h3 style="margin-top: 0;">✅ Session Summary</h3>
+    <p><strong>Class:</strong> {{ session.class_.class_name }}</p>
+    <p><strong>Date:</strong> {{ session.date.strftime('%A, %B %d, %Y') }}</p>
+    <p><strong>Duration:</strong> {{ session.duration_minutes }} minutes</p>
+</div>
+
+<h3>📊 Attendance Statistics</h3>
+<div class="stats-grid">
+    <div class="stat-item">
+        <div class="stat-value">{{ summary.total }}</div>
+        <div class="stat-label">Total Students</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" style="color: #28a745;">{{ summary.present }}</div>
+        <div class="stat-label">Present</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" style="color: #dc3545;">{{ summary.absent }}</div>
+        <div class="stat-label">Absent</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" style="color: #ffc107;">{{ summary.late }}</div>
+        <div class="stat-label">Late</div>
+    </div>
+</div>
+
+<div class="info-box">
+    <p style="text-align: center; font-size: 18px;">
+        <strong>Overall Attendance Rate:</strong> 
+        <span style="color: {{ '#28a745' if summary.attendance_rate >= 75 else '#dc3545' }}; font-size: 24px;">
+            {{ summary.attendance_rate }}%
+        </span>
+    </p>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ url_for('sessions.session_detail', session_id=session.session_id, _external=True) }}" class="button">
+        View Detailed Report
+    </a>
+</p>
+
+<p>Best regards,<br>
+<strong>{{ app_name }} Team</strong></p>
+{% endblock %}

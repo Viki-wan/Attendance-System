@@ -1,0 +1,690 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - Attendance System{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-3">
+                <i class="fas fa-chart-bar text-primary"></i>
+                Reports & Analytics
+            </h2>
+            <p class="text-muted">Generate and export comprehensive attendance reports</p>
+        </div>
+    </div>
+
+    <!-- Semester Filter Bar -->
+    <div class="card mb-4 border-info">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">
+                        <i class="fas fa-filter"></i> Filter by Semester
+                    </label>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filterSemester">
+                        <option value="">All Semesters</option>
+                        <option value="1" {% if current_semester == '1' %}selected{% endif %}>
+                            Semester 1 (Sep - Dec)
+                        </option>
+                        <option value="2" {% if current_semester == '2' %}selected{% endif %}>
+                            Semester 2 (Jan - Apr)
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filterYearLevel">
+                        <option value="">All Year Levels</option>
+                        <option value="1">Year 1</option>
+                        <option value="2">Year 2</option>
+                        <option value="3">Year 3</option>
+                        <option value="4">Year 4</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary w-100" id="resetFilters">
+                        <i class="fas fa-redo"></i> Reset to Current Semester
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Stats Display -->
+            <div class="row mt-3">
+                <div class="col">
+                    <div class="d-flex gap-3 flex-wrap">
+                        <span class="badge bg-info fs-6">
+                            <i class="fas fa-calendar-alt"></i> Current Semester {{ current_semester }}: {{ current_semester_count }} classes
+                        </span>
+                        {% for year, count in year_level_counts.items() %}
+                        <span class="badge bg-primary fs-6">
+                            Year {{ year }}: {{ count }} class{{ 'es' if count != 1 else '' }}
+                        </span>
+                        {% endfor %}
+                        <span class="badge bg-secondary fs-6">
+                            <i class="fas fa-check-circle"></i> Active: {{ active_classes }}
+                        </span>
+                        <span class="badge bg-light text-dark fs-6">
+                            <i class="fas fa-list"></i> Total: {{ total_classes }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-calendar-day text-primary"></i>
+                        Session Reports
+                    </h5>
+                    <p class="card-text">View detailed attendance for individual class sessions</p>
+                    <a href="#sessionReports" class="btn btn-primary btn-sm" data-bs-toggle="collapse">
+                        Generate Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-users text-success"></i>
+                        Class Reports
+                    </h5>
+                    <p class="card-text">Analyze attendance trends for entire classes</p>
+                    <a href="#classReports" class="btn btn-success btn-sm" data-bs-toggle="collapse">
+                        Generate Report
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card border-info h-100">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-user-graduate text-info"></i>
+                        Student Reports
+                    </h5>
+                    <p class="card-text">Track individual student attendance records</p>
+                    <a href="#studentReports" class="btn btn-info btn-sm" data-bs-toggle="collapse">
+                        Generate Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Reports Section -->
+    <div class="collapse mb-4" id="sessionReports">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-day"></i>
+                    Session Reports
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" action="{{ url_for('reports.session_report', session_id=0) }}" id="sessionReportForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="sessionClass" class="form-label">
+                                Select Class
+                                <span class="badge bg-info ms-2" id="sessionClassCount">{{ current_semester_count }} available</span>
+                            </label>
+                            <select class="form-select" id="sessionClass" required>
+                                <option value="">Choose a class...</option>
+                                <optgroup label="📚 Current Semester {{ current_semester }} (Sep-Dec {% if current_semester == '1' %}Active{% endif %} / Jan-Apr {% if current_semester == '2' %}Active{% endif %})">
+                                    {% for cls in current_semester_classes %}
+                                    <option value="{{ cls.class_id }}" data-year="{{ cls.year }}" data-semester="{{ cls.semester }}">
+                                        {{ cls.class_id }} - {{ cls.class_name }} (Year {{ cls.year }}, {{ cls.course_code }})
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% if organized_classes|length > 1 %}
+                                <optgroup label="📂 Other Semesters">
+                                    {% for semester, year_levels in organized_classes.items() %}
+                                        {% if semester != current_semester %}
+                                            {% for year, classes in year_levels.items() %}
+                                                {% for cls in classes %}
+                                                <option value="{{ cls.class_id }}" data-year="{{ cls.year }}" data-semester="{{ cls.semester }}">
+                                                    {{ cls.class_id }} - {{ cls.class_name }} (Year {{ cls.year }}, Sem {{ semester }})
+                                                </option>
+                                                {% endfor %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="sessionSelect" class="form-label">Select Session</label>
+                            <select class="form-select" id="sessionSelect" name="session_id" required disabled>
+                                <option value="">Select a class first...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" disabled id="viewSessionBtn">
+                        <i class="fas fa-eye"></i> View Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Class Reports Section -->
+    <div class="collapse mb-4" id="classReports">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-users"></i>
+                    Class Reports
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" id="classReportForm">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="classSelect" class="form-label">
+                                Select Class
+                                <span class="badge bg-info ms-2" id="classSelectCount">{{ current_semester_count }} available</span>
+                            </label>
+                            <select class="form-select" id="classSelect" name="class_id" required>
+                                <option value="">Choose a class...</option>
+                                <optgroup label="📚 Current Semester {{ current_semester }}">
+                                    {% for cls in current_semester_classes %}
+                                    <option value="{{ cls.class_id }}">
+                                        {{ cls.class_id }} - {{ cls.class_name }} (Year {{ cls.year }}, {{ cls.course_code }})
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% if organized_classes|length > 1 %}
+                                <optgroup label="📂 Other Semesters">
+                                    {% for semester, year_levels in organized_classes.items() %}
+                                        {% if semester != current_semester %}
+                                            {% for year, classes in year_levels.items() %}
+                                                {% for cls in classes %}
+                                                <option value="{{ cls.class_id }}">
+                                                    {{ cls.class_id }} - {{ cls.class_name }} (Year {{ cls.year }}, Sem {{ semester }})
+                                                </option>
+                                                {% endfor %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="startDate" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="startDate" name="start_date" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="endDate" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="endDate" name="end_date" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-eye"></i> View Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Reports Section -->
+    <div class="collapse mb-4" id="studentReports">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-graduate"></i>
+                    Student Reports
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" id="studentReportForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="studentClass" class="form-label">
+                                Select Class
+                                <span class="badge bg-info ms-2" id="studentClassCount">{{ current_semester_count }} available</span>
+                            </label>
+                            <select class="form-select" id="studentClass" required>
+                                <option value="">Choose a class...</option>
+                                <optgroup label="📚 Current Semester {{ current_semester }}">
+                                    {% for cls in current_semester_classes %}
+                                    <option value="{{ cls.class_id }}">
+                                        {{ cls.class_id }} - {{ cls.class_name }} (Year {{ cls.year }}, {{ cls.course_code }})
+                                    </option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% if organized_classes|length > 1 %}
+                                <optgroup label="📂 Other Semesters">
+                                    {% for semester, year_levels in organized_classes.items() %}
+                                        {% if semester != current_semester %}
+                                            {% for year, classes in year_levels.items() %}
+                                                {% for cls in classes %}
+                                                <option value="{{ cls.class_id }}">
+                                                    {{ cls.class_id }} - {{ cls.class_name }} (Year {{ cls.year }}, Sem {{ semester }})
+                                                </option>
+                                                {% endfor %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="studentSelect" class="form-label">Select Student</label>
+                            <select class="form-select" id="studentSelect" name="student_id" required disabled>
+                                <option value="">Select a class first...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-info" disabled id="viewStudentBtn">
+                        <i class="fas fa-eye"></i> View Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Reports -->
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line text-warning"></i>
+                        Trend Analysis
+                    </h5>
+                    <p class="card-text">View attendance trends over time for your classes</p>
+                    <a href="{{ url_for('reports.trend_analysis', class_id='') }}" class="btn btn-warning btn-sm" onclick="return selectClassForTrend(event)">
+                        View Trends
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-exclamation-triangle text-danger"></i>
+                        Low Attendance Alerts
+                    </h5>
+                    <p class="card-text">Students with attendance below threshold</p>
+                    <a href="{{ url_for('reports.low_attendance_alerts') }}" class="btn btn-danger btn-sm">
+                        View Alerts
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-12 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-download text-secondary"></i>
+                        Bulk Export
+                    </h5>
+                    <p class="card-text">Export reports for multiple classes at once</p>
+                    <a href="{{ url_for('reports.bulk_export') }}" class="btn btn-secondary btn-sm">
+                        Bulk Export
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.badge {
+    font-weight: normal;
+}
+
+optgroup {
+    font-weight: bold;
+    font-style: normal;
+}
+
+optgroup option {
+    font-weight: normal;
+    padding-left: 20px;
+}
+</style>
+
+<script>
+    // Global filtered classes cache
+    let filteredClasses = {{ current_semester_classes_json | tojson }};
+    
+    // Initialize all classes data from serialized JSON
+    let allClassesData = {{ organized_classes_json | tojson }};
+    // Flatten the structure
+    let flatClasses = [];
+    for (const semester in allClassesData) {
+        for (const year in allClassesData[semester]) {
+            flatClasses = flatClasses.concat(allClassesData[semester][year]);
+        }
+    }
+    let allClasses = flatClasses;
+    
+    // Semester & Year Level Filter Handler
+    document.getElementById('filterSemester')?.addEventListener('change', updateClassFilters);
+    document.getElementById('filterYearLevel')?.addEventListener('change', updateClassFilters);
+    
+    function updateClassFilters() {
+        const semester = document.getElementById('filterSemester').value;
+        const yearLevel = document.getElementById('filterYearLevel').value;
+        
+        // Filter classes based on selection
+        filteredClasses = allClasses.filter(cls => {
+            // Extract semester from format: year.semester (e.g., '3.1' -> semester '1')
+            let clsSemester = null;
+            if (cls.semester && cls.semester.includes('.')) {
+                const parts = cls.semester.split('.');
+                clsSemester = parts.length > 1 ? parts[1] : null;
+            } else if (cls.semester) {
+                clsSemester = cls.semester;
+            }
+            
+            // Only include valid semesters (1 or 2)
+            if (clsSemester !== '1' && clsSemester !== '2') return false;
+            
+            if (semester && clsSemester != semester) return false;
+            if (yearLevel && cls.year != parseInt(yearLevel)) return false;
+            return true;
+        });
+        
+        // Sort by year level then class name
+        filteredClasses.sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year;
+            return a.class_name.localeCompare(b.class_name);
+        });
+        
+        // Update all class dropdowns
+        updateClassDropdown('sessionClass', filteredClasses);
+        updateClassDropdown('classSelect', filteredClasses);
+        updateClassDropdown('studentClass', filteredClasses);
+        
+        // Update count badges
+        const count = filteredClasses.length;
+        document.getElementById('sessionClassCount').textContent = `${count} available`;
+        document.getElementById('classSelectCount').textContent = `${count} available`;
+        document.getElementById('studentClassCount').textContent = `${count} available`;
+    }
+    
+    function updateClassDropdown(selectId, classes) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Choose a class...</option>';
+        
+        // Group by year level
+        const byYear = {};
+        classes.forEach(cls => {
+            const year = cls.year || 1;
+            if (!byYear[year]) byYear[year] = [];
+            byYear[year].push(cls);
+        });
+        
+        // Add options grouped by year
+        Object.keys(byYear).sort().forEach(year => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `📖 Year ${year}`;
+            
+            byYear[year].forEach(cls => {
+                const option = document.createElement('option');
+                option.value = cls.class_id;
+                option.textContent = `${cls.class_id} - ${cls.class_name} (${cls.course_code})`;
+                option.dataset.year = cls.year;
+                option.dataset.semester = cls.semester;
+                optgroup.appendChild(option);
+            });
+            
+            select.appendChild(optgroup);
+        });
+        
+        // Reset dependent dropdowns when updating
+        if (selectId === 'sessionClass') {
+            const sessionSelect = document.getElementById('sessionSelect');
+            const viewBtn = document.getElementById('viewSessionBtn');
+            if (sessionSelect) {
+                sessionSelect.disabled = true;
+                sessionSelect.innerHTML = '<option value="">Select a class first...</option>';
+            }
+            if (viewBtn) viewBtn.disabled = true;
+        }
+        
+        if (selectId === 'studentClass') {
+            const studentSelect = document.getElementById('studentSelect');
+            const viewBtn = document.getElementById('viewStudentBtn');
+            if (studentSelect) {
+                studentSelect.disabled = true;
+                studentSelect.innerHTML = '<option value="">Select a class first...</option>';
+            }
+            if (viewBtn) viewBtn.disabled = true;
+        }
+    }
+    
+    // Reset Filters Button
+    document.getElementById('resetFilters')?.addEventListener('click', function() {
+        document.getElementById('filterSemester').value = "{{ current_semester }}";
+        document.getElementById('filterYearLevel').value = "";
+        updateClassFilters();
+    });
+    
+    // Session Report - Load sessions when class is selected
+    const sessionClassSelect = document.getElementById('sessionClass');
+    if (sessionClassSelect) {
+        sessionClassSelect.addEventListener('change', async function() {
+            const classId = this.value;
+            const sessionSelect = document.getElementById('sessionSelect');
+            const viewBtn = document.getElementById('viewSessionBtn');
+            
+            if (!classId) {
+                sessionSelect.disabled = true;
+                viewBtn.disabled = true;
+                sessionSelect.innerHTML = '<option value="">Select a class first...</option>';
+                return;
+            }
+            
+            // Show loading state
+            sessionSelect.innerHTML = '<option value="">Loading sessions...</option>';
+            sessionSelect.disabled = true;
+            
+            try {
+                const response = await fetch(`/lecturer/reports/api/classes/${encodeURIComponent(classId)}/sessions`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch sessions');
+                }
+                
+                const sessions = await response.json();
+                
+                sessionSelect.innerHTML = '<option value="">Choose a session...</option>';
+                
+                if (sessions.length === 0) {
+                    sessionSelect.innerHTML = '<option value="">No sessions available</option>';
+                    sessionSelect.disabled = true;
+                    viewBtn.disabled = true;
+                    return;
+                }
+                
+                sessions.forEach(session => {
+                    const option = document.createElement('option');
+                    option.value = session.session_id;
+                    option.textContent = `${session.date} - ${session.start_time} (${session.status})`;
+                    sessionSelect.appendChild(option);
+                });
+                
+                sessionSelect.disabled = false;
+                
+                // Enable view button when session is selected
+                sessionSelect.addEventListener('change', function() {
+                    viewBtn.disabled = !this.value;
+                });
+                
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                sessionSelect.innerHTML = '<option value="">Error loading sessions</option>';
+                alert('Failed to load sessions. Please try again.');
+            }
+        });
+    }
+    
+    // Update form action when session is selected
+    document.getElementById('sessionReportForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const sessionId = document.getElementById('sessionSelect').value;
+        if (sessionId) {
+            window.location.href = `/lecturer/reports/session/${sessionId}`;
+        }
+    });
+    
+    // Class Report form submission - FIX for Issue 1
+    document.getElementById('classReportForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const classId = document.getElementById('classSelect').value;
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        
+        if (classId && startDate && endDate) {
+            window.location.href = `/lecturer/reports/class/${encodeURIComponent(classId)}?start_date=${startDate}&end_date=${endDate}`;
+        } else {
+            alert('Please select a class and date range');
+        }
+    });
+    
+    // Student Report - Load students when class is selected
+    const studentClassSelect = document.getElementById('studentClass');
+    if (studentClassSelect) {
+        studentClassSelect.addEventListener('change', async function() {
+            const classId = this.value;
+            const studentSelect = document.getElementById('studentSelect');
+            const viewBtn = document.getElementById('viewStudentBtn');
+            
+            if (!classId) {
+                studentSelect.disabled = true;
+                viewBtn.disabled = true;
+                studentSelect.innerHTML = '<option value="">Select a class first...</option>';
+                return;
+            }
+            
+            // Show loading state
+            studentSelect.innerHTML = '<option value="">Loading students...</option>';
+            studentSelect.disabled = true;
+            
+            try {
+                const response = await fetch(`/lecturer/reports/api/classes/${encodeURIComponent(classId)}/students`);
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch students');
+                }
+                
+                const students = await response.json();
+                
+                studentSelect.innerHTML = '<option value="">Choose a student...</option>';
+                
+                if (students.length === 0) {
+                    studentSelect.innerHTML = '<option value="">No students enrolled</option>';
+                    studentSelect.disabled = true;
+                    viewBtn.disabled = true;
+                    return;
+                }
+                
+                students.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student.student_id;
+                    option.textContent = `${student.fname} ${student.lname} (${student.student_id})`;
+                    studentSelect.appendChild(option);
+                });
+                
+                studentSelect.disabled = false;
+                
+                // Enable view button when student is selected
+                studentSelect.addEventListener('change', function() {
+                    viewBtn.disabled = !this.value;
+                });
+                
+            } catch (error) {
+                console.error('Error loading students:', error);
+                studentSelect.innerHTML = '<option value="">Error loading students</option>';
+                alert('Failed to load students. Please try again.');
+            }
+        });
+    }
+    
+    // Update form action when student is selected
+    document.getElementById('studentReportForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const classId = document.getElementById('studentClass').value;
+        const studentId = document.getElementById('studentSelect').value;
+        
+        if (classId && studentId) {
+            window.location.href = `/lecturer/reports/student/${encodeURIComponent(studentId)}/class/${encodeURIComponent(classId)}`;
+        } else {
+            alert('Please select both a class and a student');
+        }
+    });
+    
+    // Set default date range (last 30 days)
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    if (startDateInput) startDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+    if (endDateInput) endDateInput.value = today.toISOString().split('T')[0];
+    
+    // Trend Analysis class selection
+    function selectClassForTrend(event) {
+        event.preventDefault();
+        
+        if (filteredClasses.length === 0) {
+            alert('No classes available for the selected period');
+            return false;
+        }
+        
+        if (filteredClasses.length === 1) {
+            window.location.href = `/lecturer/reports/trend/${encodeURIComponent(filteredClasses[0].class_id)}`;
+            return false;
+        }
+        
+        // Create a simple prompt for class selection
+        let classOptions = 'Select a class:\n\n';
+        filteredClasses.forEach((cls, index) => {
+            classOptions += `${index + 1}. ${cls.class_id} - ${cls.class_name}\n`;
+        });
+        
+        const selection = prompt(classOptions + '\nEnter number:');
+        if (selection && parseInt(selection) > 0 && parseInt(selection) <= filteredClasses.length) {
+            const selectedClass = filteredClasses[parseInt(selection) - 1];
+            window.location.href = `/lecturer/reports/trend/${encodeURIComponent(selectedClass.class_id)}`;
+        }
+        
+        return false;
+    }
+    </script>
+{% endblock %}

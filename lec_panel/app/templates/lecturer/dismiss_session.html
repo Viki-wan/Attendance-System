@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Dismiss Session - {{ session.class.class_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-pause-circle"></i> Dismiss Session</h2>
+                <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Session
+                </a>
+            </div>
+
+            <!-- Session Info -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Session Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Class:</dt>
+                        <dd class="col-sm-9">{{ session.class.class_name }}</dd>
+
+                        <dt class="col-sm-3">Course:</dt>
+                        <dd class="col-sm-9">{{ session.class.course.course_name }}</dd>
+
+                        <dt class="col-sm-3">Date:</dt>
+                        <dd class="col-sm-9">{{ session.date }}</dd>
+
+                        <dt class="col-sm-3">Time:</dt>
+                        <dd class="col-sm-9">{{ session.start_time }} - {{ session.end_time }}</dd>
+
+                        <dt class="col-sm-3">Expected Students:</dt>
+                        <dd class="col-sm-9">{{ session.total_students }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Info Alert -->
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle"></i>
+                <strong>About Dismissing Sessions:</strong><br>
+                Dismissing a session allows you to cancel it with a reason and optionally reschedule it to another date. 
+                This is better than deleting as it maintains an audit trail.
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="POST" 
+                          action="{{ url_for('lecturer_sessions.dismiss_session', session_id=session.session_id) }}" 
+                          id="dismissForm">
+                        
+                        <!-- Reason (Required) -->
+                        <div class="mb-4">
+                            <label for="reason" class="form-label fw-bold">
+                                Reason for Dismissal <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select mb-2" id="reason_select" onchange="handleReasonChange()">
+                                <option value="">Select a reason...</option>
+                                <option value="Instructor unavailable">Instructor unavailable</option>
+                                <option value="Public holiday">Public holiday</option>
+                                <option value="Emergency">Emergency</option>
+                                <option value="Facility unavailable">Facility unavailable</option>
+                                <option value="Low student turnout">Low student turnout</option>
+                                <option value="Weather conditions">Weather conditions</option>
+                                <option value="Technical issues">Technical issues</option>
+                                <option value="Other">Other (specify below)</option>
+                            </select>
+                            <textarea class="form-control" 
+                                      id="reason" 
+                                      name="reason" 
+                                      rows="3" 
+                                      required
+                                      placeholder="Provide detailed reason for dismissal..."></textarea>
+                            <div class="form-text">
+                                This will be recorded in the system for reporting purposes
+                            </div>
+                        </div>
+
+                        <!-- Additional Notes -->
+                        <div class="mb-4">
+                            <label for="notes" class="form-label fw-bold">
+                                Additional Notes (Optional)
+                            </label>
+                            <textarea class="form-control" 
+                                      id="notes" 
+                                      name="notes" 
+                                      rows="2"
+                                      placeholder="Any additional information or context..."></textarea>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Reschedule Option -->
+                        <div class="mb-4">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="reschedule" 
+                                       name="reschedule"
+                                       onchange="toggleRescheduleSection()">
+                                <label class="form-check-label fw-bold" for="reschedule">
+                                    Reschedule this session
+                                </label>
+                            </div>
+
+                            <div id="rescheduleSection" class="d-none">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-primary text-white">
+                                        <i class="bi bi-calendar-plus"></i> Reschedule Details
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Suggested Dates -->
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Suggested Available Dates:</label>
+                                            <div id="suggestedDates" class="list-group mb-3">
+                                                <div class="text-center py-3">
+                                                    <div class="spinner-border spinner-border-sm" role="status">
+                                                        <span class="visually-hidden">Loading...</span>
+                                                    </div>
+                                                    <span class="ms-2 text-muted">Loading suggestions...</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Manual Date Selection -->
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label for="rescheduled_to" class="form-label fw-bold">
+                                                    New Date
+                                                </label>
+                                                <input type="date" 
+                                                       class="form-control" 
+                                                       id="rescheduled_to" 
+                                                       name="rescheduled_to"
+                                                       min="{{ today }}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="rescheduled_time" class="form-label fw-bold">
+                                                    New Start Time
+                                                </label>
+                                                <input type="time" 
+                                                       class="form-control" 
+                                                       id="rescheduled_time" 
+                                                       name="rescheduled_time"
+                                                       value="{{ session.start_time }}">
+                                            </div>
+                                        </div>
+
+                                        <!-- Use Same Duration -->
+                                        <div class="form-check">
+                                            <input class="form-check-input" 
+                                                   type="checkbox" 
+                                                   id="same_duration" 
+                                                   name="same_duration"
+                                                   checked>
+                                            <label class="form-check-label" for="same_duration">
+                                                Use same duration ({{ session_duration }} minutes)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Warning -->
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Warning:</strong> Dismissing this session will:
+                            <ul class="mb-0 mt-2">
+                                <li>Change the session status to "dismissed"</li>
+                                <li>Keep attendance records if any were marked</li>
+                                <li>Prevent students from marking attendance</li>
+                                {% if session.status == 'ongoing' %}
+                                <li>Stop any ongoing attendance taking</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
+                               class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="bi bi-pause-circle"></i> Dismiss Session
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function handleReasonChange() {
+    const select = document.getElementById('reason_select');
+    const textarea = document.getElementById('reason');
+    
+    if (select.value && select.value !== 'Other') {
+        textarea.value = select.value;
+    } else if (select.value === 'Other') {
+        textarea.value = '';
+        textarea.focus();
+    }
+}
+
+function toggleRescheduleSection() {
+    const checkbox = document.getElementById('reschedule');
+    const section = document.getElementById('rescheduleSection');
+    
+    if (checkbox.checked) {
+        section.classList.remove('d-none');
+        loadSuggestedDates();
+    } else {
+        section.classList.add('d-none');
+        document.getElementById('rescheduled_to').value = '';
+        document.getElementById('rescheduled_time').value = '';
+    }
+}
+
+function loadSuggestedDates() {
+    const container = document.getElementById('suggestedDates');
+    
+    fetch(`/lecturer/sessions/api/{{ session.session_id }}/reschedule-suggestions?days_ahead=14`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.suggestions.length > 0) {
+                let html = '';
+                data.suggestions.forEach((suggestion, index) => {
+                    html += `
+                        <button type="button" 
+                                class="list-group-item list-group-item-action"
+                                onclick="selectSuggestion('${suggestion.date}', '${suggestion.time}')">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${suggestion.date}</strong> (${suggestion.day_name})
+                                    <br>
+                                    <small class="text-muted">${suggestion.time}</small>
+                                </div>
+                                <i class="bi bi-arrow-right"></i>
+                            </div>
+                        </button>`;
+                });
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-info-circle"></i>
+                        No suitable dates found in the next 14 days. Please select manually.
+                    </div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading suggestions:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    Error loading suggestions. Please select date manually.
+                </div>`;
+        });
+}
+
+function selectSuggestion(date, time) {
+    document.getElementById('rescheduled_to').value = date;
+    document.getElementById('rescheduled_time').value = time;
+    
+    // Highlight selected
+    document.querySelectorAll('#suggestedDates .list-group-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    event.target.closest('.list-group-item').classList.add('active');
+}
+
+// Set today's date as minimum
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('rescheduled_to').min = today;
+});
+</script>
+{% endblock %}

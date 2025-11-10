@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}401 - Unauthorized{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+        <div class="col-md-8 col-lg-6 text-center">
+            <div class="error-container">
+                <!-- Error Icon -->
+                <div class="mb-4">
+                    <i class="fas fa-lock text-danger" style="font-size: 120px;"></i>
+                </div>
+                
+                <!-- Error Code -->
+                <h1 class="display-1 fw-bold text-primary mb-3">401</h1>
+                
+                <!-- Error Title -->
+                <h2 class="h3 mb-4">Authentication Required</h2>
+                
+                <!-- Error Description -->
+                <p class="text-muted mb-4 lead">
+                    You need to be logged in to access this page.
+                    Please authenticate to continue.
+                </p>
+                
+                <!-- Action Buttons -->
+                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                    </a>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-home me-2"></i>Go to Dashboard
+                    </a>
+                </div>
+                
+                <!-- Additional Help -->
+                <div class="mt-5 pt-4 border-top">
+                    <p class="text-muted small mb-2">Having trouble logging in?</p>
+                    <p class="text-muted small">
+                        <i class="fas fa-question-circle me-2"></i>
+                        <a href="#">Reset your password</a> or 
+                        <a href="mailto:support@example.com">contact support</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .error-container {
+        animation: fadeIn 0.5s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .error-container i.fa-lock {
+        animation: shake 0.5s ease-in-out;
+    }
+    
+    @keyframes shake {
+        0%, 100% {
+            transform: translateX(0);
+        }
+        25% {
+            transform: translateX(-10px);
+        }
+        75% {
+            transform: translateX(10px);
+        }
+    }
+</style>
+{% endblock %}

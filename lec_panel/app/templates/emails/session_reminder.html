@@ -1,0 +1,48 @@
+{% extends 'emails/base.html' %}
+
+{% block header_title %}Session Reminder{% endblock %}
+
+{% block content %}
+<p>Hello <strong>{{ instructor.instructor_name }}</strong>,</p>
+
+<p>This is a reminder for your upcoming class session in <strong>{{ hours_before }} hour(s)</strong>.</p>
+
+<div class="info-box">
+    <h3 style="margin-top: 0;">📚 Session Details</h3>
+    <table>
+        <tr>
+            <td><strong>Class:</strong></td>
+            <td>{{ session.class_.class_name }}</td>
+        </tr>
+        <tr>
+            <td><strong>Course:</strong></td>
+            <td>{{ session.class_.course_code }}</td>
+        </tr>
+        <tr>
+            <td><strong>Date:</strong></td>
+            <td>{{ session.date.strftime('%A, %B %d, %Y') }}</td>
+        </tr>
+        <tr>
+            <td><strong>Time:</strong></td>
+            <td>{{ session.start_time.strftime('%I:%M %p') }} - {{ session.end_time.strftime('%I:%M %p') }}</td>
+        </tr>
+        <tr>
+            <td><strong>Duration:</strong></td>
+            <td>{{ session.duration_minutes }} minutes</td>
+        </tr>
+        <tr>
+            <td><strong>Expected Students:</strong></td>
+            <td>{{ session.total_students }}</td>
+        </tr>
+    </table>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ url_for('sessions.session_detail', session_id=session.session_id, _external=True) }}" class="button">
+        View Session Details
+    </a>
+</p>
+
+<p>Best regards,<br>
+<strong>{{ app_name }} Team</strong></p>
+{% endblock %}

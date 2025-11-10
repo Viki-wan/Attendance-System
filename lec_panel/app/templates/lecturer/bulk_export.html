@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Export{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-file-export text-primary"></i>
+                        Bulk Export
+                    </h2>
+                    <p class="text-muted mb-0">Export multiple class reports at once</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Form -->
+    <div class="row">
+        <div class="col-12">
+            <form method="POST" action="{{ url_for('reports.process_bulk_export') }}" id="bulkExportForm">
+                <div class="card mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cog"></i> Export Configuration
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Export Type -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Export Type</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="export_type" 
+                                       id="export_selected" value="selected" checked 
+                                       onchange="toggleClassSelection()">
+                                <label class="form-check-label" for="export_selected">
+                                    Export Selected Classes
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="export_type" 
+                                       id="export_all" value="all_classes" 
+                                       onchange="toggleClassSelection()">
+                                <label class="form-check-label" for="export_all">
+                                    Export All My Classes
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Date Range -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Date Range</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="start_date" class="form-label">Start Date</label>
+                                    <input type="date" class="form-control" id="start_date" 
+                                           name="start_date" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="end_date" class="form-label">End Date</label>
+                                    <input type="date" class="form-control" id="end_date" 
+                                           name="end_date" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Export Format -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Export Format</label>
+                            <select class="form-select" name="format" required>
+                                <option value="excel" selected>Excel Workbook (.xlsx)</option>
+                                <!-- Future formats can be added here -->
+                            </select>
+                            <div class="form-text">
+                                Excel format creates a workbook with a separate sheet for each class
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Selection -->
+                <div class="card mb-4" id="classSelectionCard">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-check-square"></i> Select Classes
+                        </h5>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAll()">
+                                Select All
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAll()">
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% if classes %}
+                        <div class="row">
+                            {% for class in classes %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="form-check p-3 border rounded">
+                                    <input class="form-check-input class-checkbox" type="checkbox" 
+                                           name="class_ids" value="{{ class.class_id }}" 
+                                           id="class_{{ class.class_id }}">
+                                    <label class="form-check-label w-100" for="class_{{ class.class_id }}">
+                                        <strong>{{ class.class_name }}</strong><br>
+                                        <small class="text-muted">
+                                            {{ class.course_code }} - Year {{ class.year }}
+                                        </small>
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3 d-block"></i>
+                            <p class="text-muted">No classes available for export</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="card">
+                    <div class="card-body text-center">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-download"></i> Generate Bulk Export
+                        </button>
+                        <p class="text-muted mt-2 mb-0">
+                            <small>
+                                <i class="fas fa-info-circle"></i>
+                                The export may take a few moments to generate depending on the number of classes selected
+                            </small>
+                        </p>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Set default dates (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    $('#end_date').val(endDate.toISOString().split('T')[0]);
+    $('#start_date').val(startDate.toISOString().split('T')[0]);
+});
+
+function toggleClassSelection() {
+    const exportType = $('input[name="export_type"]:checked').val();
+    const classSelectionCard = $('#classSelectionCard');
+    
+    if (exportType === 'all_classes') {
+        classSelectionCard.hide();
+        $('.class-checkbox').prop('required', false);
+    } else {
+        classSelectionCard.show();
+        $('.class-checkbox').prop('required', true);
+    }
+}
+
+function selectAll() {
+    $('.class-checkbox').prop('checked', true);
+}
+
+function deselectAll() {
+    $('.class-checkbox').prop('checked', false);
+}
+
+// Form validation
+$('#bulkExportForm').on('submit', function(e) {
+    const exportType = $('input[name="export_type"]:checked').val();
+    
+    if (exportType === 'selected') {
+        const checkedBoxes = $('.class-checkbox:checked').length;
+        
+        if (checkedBoxes === 0) {
+            e.preventDefault();
+            alert('Please select at least one class to export');
+            return false;
+        }
+    }
+    
+    // Show loading indicator
+    const submitBtn = $(this).find('button[type="submit"]');
+    submitBtn.prop('disabled', true);
+    submitBtn.html('<i class="fas fa-spinner fa-spin"></i> Generating Export...');
+});
+</script>
+{% endblock %}

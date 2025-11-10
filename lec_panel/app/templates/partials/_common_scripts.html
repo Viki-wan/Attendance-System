@@ -1,0 +1,143 @@
+<script>
+    // Show loading overlay
+    function showLoading(message = 'Please wait...') {
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.querySelector('p').textContent = message;
+        overlay.classList.add('active');
+    }
+    
+    // Hide loading overlay
+    function hideLoading() {
+        document.getElementById('loadingOverlay').classList.remove('active');
+    }
+    
+    // Show flash message dynamically (for AJAX responses)
+    function showFlashMessage(message, category = 'info') {
+        const flashContainer = document.getElementById('flashMessages');
+        const iconMap = {
+            'error': 'exclamation-circle',
+            'success': 'check-circle',
+            'warning': 'exclamation-triangle',
+            'info': 'info-circle'
+        };
+        
+        const titleMap = {
+            'error': 'Error!',
+            'success': 'Success!',
+            'warning': 'Warning!',
+            'info': 'Info!'
+        };
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${category === 'error' ? 'danger' : category} alert-dismissible fade show`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+            <i class="fas fa-${iconMap[category]} me-2"></i>
+            <strong>${titleMap[category]}</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        flashContainer.appendChild(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(function() {
+            const bsAlert = new bootstrap.Alert(alertDiv);
+            bsAlert.close();
+        }, 5000);
+    }
+    
+    // Auto-dismiss alerts
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(function(alert) {
+            setTimeout(function() {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 5000);
+        });
+    });
+    
+    // Confirm before dangerous actions
+    function confirmAction(message = 'Are you sure you want to proceed?') {
+        return confirm(message);
+    }
+    
+    // Format date to local string
+    function formatDate(dateString, includeTime = true) {
+        const date = new Date(dateString);
+        const options = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+        
+        if (includeTime) {
+            options.hour = '2-digit';
+            options.minute = '2-digit';
+        }
+        
+        return date.toLocaleDateString('en-US', options);
+    }
+    
+    // Format time only
+    function formatTime(timeString) {
+        const [hours, minutes] = timeString.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+    }
+    
+    // Copy text to clipboard
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(function() {
+            showFlashMessage('Copied to clipboard!', 'success');
+        }).catch(function(err) {
+            showFlashMessage('Failed to copy: ' + err, 'error');
+        });
+    }
+    
+    // Handle form submission with loading state
+    document.addEventListener('submit', function(e) {
+        if (e.target.classList.contains('needs-loading')) {
+            showLoading('Processing...');
+        }
+    });
+    
+    // Back button handler
+    function goBack() {
+        window.history.back();
+    }
+    
+    // Export functionality helper
+    function exportData(url, format) {
+        showLoading(`Generating ${format.toUpperCase()} export...`);
+        window.location.href = url;
+        setTimeout(hideLoading, 2000);
+    }
+    
+    // Format percentage with color coding
+    function formatPercentage(value, showColor = true) {
+        const percentage = parseFloat(value).toFixed(1);
+        if (!showColor) return `${percentage}%`;
+        
+        let colorClass = 'text-success';
+        if (percentage < 75) colorClass = 'text-warning';
+        if (percentage < 60) colorClass = 'text-danger';
+        
+        return `<span class="${colorClass}">${percentage}%</span>`;
+    }
+    
+    // Debounce function for search inputs
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+</script>

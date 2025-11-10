@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+
+{% block title %}Low Attendance Alerts{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                        Low Attendance Alerts
+                    </h2>
+                    <p class="text-muted mb-0">Students requiring attention</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Threshold Selector -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3 align-items-end">
+                        <div class="col-md-8">
+                            <label for="threshold" class="form-label">
+                                Alert Threshold (Show students below this percentage)
+                            </label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="threshold" name="threshold" 
+                                       value="{{ threshold }}" min="0" max="100" step="5">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-filter"></i> Apply Threshold
+                            </button>
+                            <div class="btn-group ms-2">
+                                <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{{ url_for('reports.export_alerts', format='pdf', threshold=threshold) }}">
+                                        <i class="fas fa-file-pdf text-danger"></i> PDF
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('reports.export_alerts', format='excel', threshold=threshold) }}">
+                                        <i class="fas fa-file-excel text-success"></i> Excel
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('reports.export_alerts', format='csv', threshold=threshold) }}">
+                                        <i class="fas fa-file-csv text-info"></i> CSV
+                                    </a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Total At-Risk Students</h6>
+                            <h3 class="mb-0 text-danger">{{ report_data.statistics.total_at_risk }}</h3>
+                        </div>
+                        <i class="fas fa-users fa-2x text-danger opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Classes Affected</h6>
+                            <h3 class="mb-0 text-warning">{{ report_data.statistics.classes_affected }}</h3>
+                        </div>
+                        <i class="fas fa-chalkboard fa-2x text-warning opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">Average Attendance</h6>
+                            <h3 class="mb-0 text-info">{{ "%.1f"|format(report_data.statistics.average_attendance) }}%</h3>
+                        </div>
+                        <i class="fas fa-chart-bar fa-2x text-info opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Students Requiring Attention
+                    </h5>
+                    <span class="badge bg-danger">{{ report_data.students|length }} Students</span>
+                </div>
+                <div class="card-body">
+                    {% if report_data.students %}
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="alertsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Class</th>
+                                    <th>Course</th>
+                                    <th class="text-center">Attended</th>
+                                    <th class="text-center">Total Sessions</th>
+                                    <th class="text-center">Attendance Rate</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in report_data.students %}
+                                <tr class="{% if student.attendance_rate < 50 %}table-danger{% elif student.attendance_rate < threshold %}table-warning{% endif %}">
+                                    <td>{{ student.student_id }}</td>
+                                    <td>{{ student.name }}</td>
+                                    <td>{{ student.email }}</td>
+                                    <td>{{ student.class_name }}</td>
+                                    <td>{{ student.course_code }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ student.attended }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ student.total_sessions }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="d-flex align-items-center justify-content-center">
+                                            <div class="progress" style="width: 60px; height: 20px;">
+                                                <div class="progress-bar 
+                                                    {% if student.attendance_rate >= 75 %}bg-success
+                                                    {% elif student.attendance_rate >= 50 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                    role="progressbar" 
+                                                    style="width: {{ student.attendance_rate }}%">
+                                                </div>
+                                            </div>
+                                            <span class="ms-2 fw-bold 
+                                                {% if student.attendance_rate >= 75 %}text-success
+                                                {% elif student.attendance_rate >= 50 %}text-warning
+                                                {% else %}text-danger{% endif %}">
+                                                {{ "%.1f"|format(student.attendance_rate) }}%
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <a href="{{ url_for('reports.student_report', student_id=student.student_id, class_id=student.class_id) }}" 
+                                           class="btn btn-sm btn-outline-primary" 
+                                           title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-warning" 
+                                                onclick="sendAlert('{{ student.student_id }}')" 
+                                                title="Send Notification">
+                                            <i class="fas fa-bell"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                        <h4>No At-Risk Students Found</h4>
+                        <p class="text-muted">
+                            All students are maintaining attendance above {{ threshold }}%
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    $('#alertsTable').DataTable({
+        order: [[7, 'asc']], // Sort by attendance rate ascending (worst first)
+        pageLength: 25,
+        language: {
+            search: "Search students:",
+            lengthMenu: "Show _MENU_ students per page"
+        }
+    });
+});
+
+function sendAlert(studentId) {
+    if (confirm('Send low attendance notification to this student?')) {
+        // Implement notification sending logic
+        $.ajax({
+            url: '/api/notifications/send',
+            method: 'POST',
+            data: {
+                student_id: studentId,
+                type: 'low_attendance'
+            },
+            success: function(response) {
+                alert('Notification sent successfully!');
+            },
+            error: function() {
+                alert('Failed to send notification. Please try again.');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

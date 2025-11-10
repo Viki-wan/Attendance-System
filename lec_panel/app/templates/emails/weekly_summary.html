@@ -1,0 +1,51 @@
+{% extends 'emails/base.html' %}
+
+{% block header_title %}Weekly Summary{% endblock %}
+
+{% block content %}
+<p>Hello <strong>{{ instructor.instructor_name }}</strong>,</p>
+
+<p>Here's your weekly attendance summary for <strong>{{ summary.week_start }}</strong> to <strong>{{ summary.week_end }}</strong>.</p>
+
+<div class="stats-grid">
+    <div class="stat-item">
+        <div class="stat-value">{{ summary.total_sessions }}</div>
+        <div class="stat-label">Total Sessions</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ summary.avg_attendance_rate }}%</div>
+        <div class="stat-label">Avg Attendance</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ summary.total_students }}</div>
+        <div class="stat-label">Students Tracked</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" style="color: #dc3545;">{{ summary.low_attendance_count }}</div>
+        <div class="stat-label">Alerts</div>
+    </div>
+</div>
+
+<div class="success-box">
+    <h4>🏆 Top Performing Class</h4>
+    <p>{{ summary.best_class }}</p>
+</div>
+
+{% if summary.attention_needed %}
+<div class="warning-box">
+    <h4>⚠️ Needs Attention</h4>
+    <p>{{ summary.attention_needed }}</p>
+</div>
+{% endif %}
+
+<p style="text-align: center;">
+    <a href="{{ url_for('dashboard.index', _external=True) }}" class="button">
+        View Detailed Analytics
+    </a>
+</p>
+
+<p>Keep up the great work!</p>
+
+<p>Best regards,<br>
+<strong>{{ app_name }} Team</strong></p>
+{% endblock %}

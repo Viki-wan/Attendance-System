@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Student Report - {{ report_data.student_info.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-user-graduate text-primary"></i>
+                        Student Report
+                    </h2>
+                    <p class="text-muted mb-0">{{ report_data.student_info.name }} - {{ report_data.student_info.student_id }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('reports.class_report', class_id=report_data.class_info.class_id) }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Class Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Info Card -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <img src="{{ url_for('static', filename='images/default-avatar.png') }}" 
+                         class="rounded-circle mb-3" 
+                         width="120" height="120" 
+                         alt="Student Photo">
+                    <h5 class="mb-1">{{ report_data.student_info.name }}</h5>
+                    <p class="text-muted mb-3">{{ report_data.student_info.student_id }}</p>
+                    <p class="mb-1"><i class="fas fa-envelope text-muted"></i> {{ report_data.student_info.email }}</p>
+                    <p class="mb-0"><i class="fas fa-book text-muted"></i> {{ report_data.class_info.class_name }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="col-md-8">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-1">Present</h6>
+                                    <h3 class="mb-0 text-success">{{ report_data.statistics.present }}</h3>
+                                </div>
+                                <i class="fas fa-check-circle fa-2x text-success opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card border-warning">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-1">Late</h6>
+                                    <h3 class="mb-0 text-warning">{{ report_data.statistics.late }}</h3>
+                                </div>
+                                <i class="fas fa-clock fa-2x text-warning opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card border-danger">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-1">Absent</h6>
+                                    <h3 class="mb-0 text-danger">{{ report_data.statistics.absent }}</h3>
+                                </div>
+                                <i class="fas fa-times-circle fa-2x text-danger opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="text-muted mb-1">Attendance Rate</h6>
+                                    <h3 class="mb-0 text-primary">{{ "%.1f"|format(report_data.statistics.attendance_rate) }}%</h3>
+                                </div>
+                                <i class="fas fa-chart-pie fa-2x text-primary opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-download"></i> Export Report
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('reports.export_student_report', student_id=report_data.student_info.student_id, class_id=report_data.class_info.class_id, format='pdf') }}">
+                                <i class="fas fa-file-pdf text-danger"></i> PDF
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('reports.export_student_report', student_id=report_data.student_info.student_id, class_id=report_data.class_info.class_id, format='excel') }}">
+                                <i class="fas fa-file-excel text-success"></i> Excel
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('reports.export_student_report', student_id=report_data.student_info.student_id, class_id=report_data.class_info.class_id, format='csv') }}">
+                                <i class="fas fa-file-csv text-info"></i> CSV
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance History -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history"></i> Attendance History
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="historyTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Session ID</th>
+                                    <th>Date</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>Status</th>
+                                    <th>Timestamp</th>
+                                    <th>Method</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in report_data.attendance_history %}
+                                <tr>
+                                    <td>{{ record.session_id }}</td>
+                                    <td>{{ record.date }}</td>
+                                    <td>{{ record.start_time }}</td>
+                                    <td>{{ record.end_time }}</td>
+                                    <td>
+                                        {% if record.status == 'present' %}
+                                            <span class="badge bg-success">Present</span>
+                                        {% elif record.status == 'late' %}
+                                            <span class="badge bg-warning">Late</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Absent</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ record.timestamp }}</td>
+                                    <td>
+                                        <span class="badge bg-info">{{ record.method }}</span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                        No attendance records available
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#historyTable').DataTable({
+        order: [[1, 'desc']], // Sort by date descending
+        pageLength: 25
+    });
+});
+</script>
+{% endblock %}

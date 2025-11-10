@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First-Time Setup - Face Recognition Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+
+        .setup-container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .setup-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .setup-header {
+            background: linear-gradient(135deg, var(--warning-color) 0%, #e67e22 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .setup-header i {
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .setup-header h2 {
+            margin: 0;
+            font-size: 1.9rem;
+            font-weight: 600;
+        }
+
+        .setup-header p {
+            margin: 10px 0 0;
+            opacity: 0.95;
+            font-size: 1rem;
+        }
+
+        .setup-body {
+            padding: 40px 30px;
+        }
+
+        .welcome-message {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-left: 4px solid var(--success-color);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .welcome-message h5 {
+            color: var(--success-color);
+            margin: 0 0 10px;
+            font-weight: 600;
+        }
+
+        .welcome-message p {
+            margin: 0;
+            color: #2e7d32;
+        }
+
+        .setup-steps {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .setup-steps h6 {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .step-number {
+            background: var(--secondary-color);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            flex: 1;
+            padding-top: 3px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .form-label .required {
+            color: var(--danger-color);
+        }
+
+        .form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 12px 15px;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.15);
+        }
+
+        .form-control.is-invalid {
+            border-color: var(--danger-color);
+        }
+
+        .form-control.is-valid {
+            border-color: var(--success-color);
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-toggle {
+            cursor: pointer;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            z-index: 10;
+        }
+
+        .password-strength {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .strength-weak {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .strength-medium {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .strength-strong {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .btn-setup {
+            background: linear-gradient(135deg, var(--success-color) 0%, #229954 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+
+        .btn-setup:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(39, 174, 96, 0.4);
+        }
+
+        .btn-setup:active {
+            transform: translateY(0);
+        }
+
+        .btn-setup:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            border-radius: 10px;
+            border: none;
+            margin-bottom: 20px;
+        }
+
+        .form-text {
+            color: #6c757d;
+            font-size: 0.875rem;
+            margin-top: 5px;
+        }
+
+        .optional-badge {
+            background: #e0e0e0;
+            color: #666;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        @media (max-width: 576px) {
+            .setup-header {
+                padding: 30px 20px;
+            }
+
+            .setup-body {
+                padding: 30px 20px;
+            }
+
+            .setup-header h2 {
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-card">
+            <!-- Header -->
+            <div class="setup-header">
+                <i class="bi bi-gear"></i>
+                <h2>Welcome! First-Time Setup</h2>
+                <p>Let's get your account configured</p>
+            </div>
+
+            <!-- Body -->
+            <div class="setup-body">
+                <!-- Welcome Message -->
+                <div class="welcome-message">
+                    <h5><i class="bi bi-person-check"></i> Hello, {{ current_user.instructor_name }}!</h5>
+                    <p>
+                        <strong>Instructor ID:</strong> {{ current_user.instructor_id }}<br>
+                        This is your first login. Please complete the setup below.
+                    </p>
+                </div>
+
+                <!-- Setup Steps -->
+                <div class="setup-steps">
+                    <h6><i class="bi bi-list-check"></i> Setup Checklist</h6>
+                    <div class="step-item">
+                        <div class="step-number">1</div>
+                        <div class="step-text">Change your password from default</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">2</div>
+                        <div class="step-text">Update your contact information (optional)</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-number">3</div>
+                        <div class="step-text">Click "Complete Setup" to start using the system</div>
+                    </div>
+                </div>
+
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                <i class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'error' or category == 'danger' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Setup Form -->
+                <form method="POST" action="{{ url_for('auth.first_time_setup') }}" id="setupForm" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    
+                    <!-- Current Password -->
+                    <div class="mb-3">
+
+                    <!-- Current Password -->
+                    <div class="mb-3">
+                        <label for="current_password" class="form-label">
+                            <i class="bi bi-key"></i> Current Password <span class="required">*</span>
+                        </label>
+                        <div class="password-wrapper">
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="current_password" 
+                                   name="current_password"
+                                   placeholder="Your current password (Instructor ID)"
+                                   required>
+                            <i class="bi bi-eye password-toggle" data-target="current_password"></i>
+                        </div>
+                        <small class="form-text">
+                            <i class="bi bi-info-circle"></i> Use your Instructor ID as current password
+                        </small>
+                    </div>
+
+                    <!-- New Password -->
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label">
+                            <i class="bi bi-shield-lock"></i> New Password <span class="required">*</span>
+                        </label>
+                        <div class="password-wrapper">
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="new_password" 
+                                   name="new_password"
+                                   placeholder="Create a strong password"
+                                   required>
+                            <i class="bi bi-eye password-toggle" data-target="new_password"></i>
+                        </div>
+                        <small class="form-text">
+                            <i class="bi bi-check-circle"></i> Minimum 8 characters, must contain letters and numbers
+                        </small>
+                        <div id="passwordStrength"></div>
+                    </div>
+
+                    <!-- Confirm Password -->
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">
+                            <i class="bi bi-shield-check"></i> Confirm New Password <span class="required">*</span>
+                        </label>
+                        <div class="password-wrapper">
+                            <input type="password" 
+                                   class="form-control" 
+                                   id="confirm_password" 
+                                   name="confirm_password"
+                                   placeholder="Re-enter your new password"
+                                   required>
+                            <i class="bi bi-eye password-toggle" data-target="confirm_password"></i>
+                        </div>
+                        <div id="passwordMatch"></div>
+                    </div>
+
+                    <hr style="margin: 30px 0;">
+                    <h6 style="color: var(--primary-color); margin-bottom: 20px;">
+                        <i class="bi bi-person-lines-fill"></i> Contact Information
+                        <span class="optional-badge">OPTIONAL</span>
+                    </h6>
+
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            <i class="bi bi-envelope"></i> Email Address
+                            <span class="optional-badge">Optional</span>
+                        </label>
+                        <input type="email" 
+                               class="form-control" 
+                               id="email" 
+                               name="email"
+                               value="{{ current_user.email or '' }}"
+                               placeholder="your.email@example.com">
+                        <small class="form-text">
+                            Used for notifications and password recovery
+                        </small>
+                    </div>
+
+                    <!-- Phone -->
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">
+                            <i class="bi bi-phone"></i> Phone Number
+                            <span class="optional-badge">Optional</span>
+                        </label>
+                        <input type="tel" 
+                               class="form-control" 
+                               id="phone" 
+                               name="phone"
+                               value="{{ current_user.phone or '' }}"
+                               placeholder="07XXXXXXXX or 2547XXXXXXXX">
+                        <small class="form-text">
+                            10-15 digits, no spaces or special characters
+                        </small>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-setup" id="submitBtn">
+                        <i class="bi bi-check-circle"></i> Complete Setup
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Password toggle functionality
+        document.querySelectorAll('.password-toggle').forEach(toggle => {
+            toggle.addEventListener('click', function () {
+                const targetId = this.getAttribute('data-target');
+                const input = document.getElementById(targetId);
+                
+                const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', type);
+                
+                this.classList.toggle('bi-eye');
+                this.classList.toggle('bi-eye-slash');
+            });
+        });
+
+        // Password strength checker
+        const newPassword = document.getElementById('new_password');
+        const strengthDiv = document.getElementById('passwordStrength');
+
+        newPassword.addEventListener('input', function() {
+            const password = this.value;
+            let strength = 0;
+            let feedback = '';
+
+            if (password.length === 0) {
+                strengthDiv.innerHTML = '';
+                return;
+            }
+
+            // Check length
+            if (password.length >= 8) strength++;
+            if (password.length >= 12) strength++;
+
+            // Check for letters
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
+                strength++;
+            } else if (/[a-zA-Z]/.test(password)) {
+                strength += 0.5;
+            }
+
+            // Check for numbers
+            if (/\d/.test(password)) strength++;
+
+            // Check for special characters
+            if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) strength++;
+
+            // Determine strength level
+            if (strength < 2) {
+                feedback = '<div class="password-strength strength-weak"><i class="bi bi-x-circle"></i> Weak password - Add more characters and variety</div>';
+            } else if (strength < 4) {
+                feedback = '<div class="password-strength strength-medium"><i class="bi bi-exclamation-circle"></i> Medium strength - Consider adding special characters</div>';
+            } else {
+                feedback = '<div class="password-strength strength-strong"><i class="bi bi-check-circle"></i> Strong password!</div>';
+            }
+
+            strengthDiv.innerHTML = feedback;
+        });
+
+        // Password match checker
+        const confirmPassword = document.getElementById('confirm_password');
+        const matchDiv = document.getElementById('passwordMatch');
+
+        confirmPassword.addEventListener('input', function() {
+            const password = newPassword.value;
+            const confirm = this.value;
+
+            if (confirm.length === 0) {
+                matchDiv.innerHTML = '';
+                return;
+            }
+
+            if (password === confirm) {
+                matchDiv.innerHTML = '<small style="color: var(--success-color);"><i class="bi bi-check-circle"></i> Passwords match</small>';
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            } else {
+                matchDiv.innerHTML = '<small style="color: var(--danger-color);"><i class="bi bi-x-circle"></i> Passwords do not match</small>';
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+            }
+        });
+
+        // Form validation
+        const form = document.getElementById('setupForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        form.addEventListener('submit', function(e) {
+            const currentPassword = document.getElementById('current_password').value.trim();
+            const newPass = newPassword.value.trim();
+            const confirmPass = confirmPassword.value.trim();
+            const email = document.getElementById('email').value.trim();
+            const phone = document.getElementById('phone').value.trim();
+
+            let errors = [];
+
+            // Validate required fields
+            if (!currentPassword) {
+                errors.push('Current password is required');
+            }
+
+            if (!newPass) {
+                errors.push('New password is required');
+            } else if (newPass.length < 8) {
+                errors.push('Password must be at least 8 characters');
+            } else if (!/[a-zA-Z]/.test(newPass)) {
+                errors.push('Password must contain at least one letter');
+            } else if (!/\d/.test(newPass)) {
+                errors.push('Password must contain at least one number');
+            }
+
+            if (newPass !== confirmPass) {
+                errors.push('Passwords do not match');
+            }
+
+            // Validate email if provided
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                errors.push('Invalid email format');
+            }
+
+            // Validate phone if provided
+            if (phone && (!/^\d{10,15}$/.test(phone))) {
+                errors.push('Phone must be 10-15 digits');
+            }
+
+            if (errors.length > 0) {
+                e.preventDefault();
+                alert('Please fix the following errors:\n\n' + errors.join('\n'));
+            }
+        });
+
+        // Auto-dismiss alerts
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

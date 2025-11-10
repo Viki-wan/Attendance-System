@@ -1,0 +1,679 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Attendance System{% endblock %}
+
+{% block meta_description %}View your attendance statistics, manage sessions, and track student performance{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        animation: fadeIn 0.5s ease-in;
+    }
+    
+    .dashboard-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 2rem;
+    }
+    
+    .dashboard-header .subtitle {
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        height: 100%;
+    }
+    
+    .stat-card .icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 15px;
+    }
+    
+    .stat-card.primary .icon {
+        background: rgba(52, 152, 219, 0.1);
+        color: var(--secondary-color);
+    }
+    
+    .stat-card.success .icon {
+        background: rgba(39, 174, 96, 0.1);
+        color: var(--success-color);
+    }
+    
+    .stat-card.warning .icon {
+        background: rgba(243, 156, 18, 0.1);
+        color: var(--warning-color);
+    }
+    
+    .stat-card.danger .icon {
+        background: rgba(231, 76, 60, 0.1);
+        color: var(--danger-color);
+    }
+    
+    .stat-card .value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    
+    .stat-card .label {
+        color: var(--light-text);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .session-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border-left: 4px solid #ddd;
+        transition: all 0.3s;
+    }
+    
+    .session-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateX(5px);
+    }
+    
+    .session-card.upcoming {
+        border-left-color: var(--secondary-color);
+    }
+    
+    .session-card.in-progress {
+        border-left-color: var(--success-color);
+        background: rgba(39, 174, 96, 0.05);
+    }
+    
+    .session-card.completed {
+        border-left-color: var(--light-text);
+        opacity: 0.8;
+    }
+    
+    .session-card.ready_to_start {
+        border-left-color: var(--warning-color);
+        background: rgba(243, 156, 18, 0.05);
+    }
+    
+    .session-time {
+        font-size: 0.9rem;
+        color: var(--light-text);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .progress-ring {
+        position: relative;
+        width: 80px;
+        height: 80px;
+    }
+    
+    .progress-ring svg {
+        transform: rotate(-90deg);
+    }
+    
+    .progress-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+    
+    .quick-action-btn {
+        width: 100%;
+        padding: 15px;
+        font-size: 1.1rem;
+        border-radius: 8px;
+    }
+    
+    .alert-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .alert-badge.critical {
+        background: rgba(231, 76, 60, 0.1);
+        color: var(--danger-color);
+    }
+    
+    .alert-badge.high {
+        background: rgba(243, 156, 18, 0.1);
+        color: var(--warning-color);
+    }
+    
+    .alert-badge.medium {
+        background: rgba(52, 152, 219, 0.1);
+        color: var(--secondary-color);
+    }
+    
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--light-text);
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-header h1 {
+            font-size: 1.5rem;
+        }
+        
+        .stat-card .value {
+            font-size: 2rem;
+        }
+        
+        .progress-ring {
+            width: 60px;
+            height: 60px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container fade-in">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>
+            <i class="fas fa-tachometer-alt me-2"></i>
+            Welcome back, {{ current_user.instructor_name }}!
+        </h1>
+        <p class="subtitle">
+            <i class="fas fa-calendar-day me-2"></i>
+            {{ current_date.strftime('%A, %B %d, %Y') if current_date else 'Loading...' }}
+        </p>
+    </div>
+    
+    {% if dashboard %}
+    <!-- Quick Stats Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card primary card-hover">
+                <div class="icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div class="value">{{ dashboard.quick_stats.today.total }}</div>
+                <div class="label">Today's Sessions</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-clock-history"></i> Active sessions
+                </small>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card success card-hover">
+                <div class="icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="value">{{ dashboard.quick_stats.today.completed }}</div>
+                <div class="label">Completed Today</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-check2-circle"></i> Sessions finished
+                </small>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card warning card-hover">
+                <div class="icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="value">{{ dashboard.quick_stats.today.pending }}</div>
+                <div class="label">Pending Sessions</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-hourglass-split"></i> Awaiting action
+                </small>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card danger card-hover">
+                <div class="icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="value">{{ dashboard.low_attendance_alerts|length }}</div>
+                <div class="label">Low Attendance</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-exclamation-triangle"></i> Needs attention
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Left Column: Today's Sessions -->
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-day text-primary me-2"></i>
+                        Today's Sessions
+                    </h4>
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshDashboard()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                
+                {% if dashboard.today_sessions %}
+                    {% for session in dashboard.today_sessions %}
+                    <div class="session-card {{ session.state }}">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h5 class="mb-1">{{ session.class_name }}</h5>
+                                <p class="session-time mb-0">
+                                    <i class="fas fa-clock"></i>
+                                    {{ session.start_time }} - {{ session.end_time }}
+                                </p>
+                                {% if session.state == 'in_progress' %}
+                                <span class="badge bg-success mt-2">
+                                    <i class="bi bi-broadcast"></i> Live Now
+                                </span>
+                                {% elif session.state == 'ready_to_start' %}
+                                <span class="badge bg-warning mt-2">
+                                    <i class="bi bi-play-circle"></i> Ready to Start
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3 text-center my-3 my-md-0">
+                                <div class="progress-ring">
+                                    <svg width="80" height="80">
+                                        <circle cx="40" cy="40" r="35" fill="none" 
+                                                stroke="#e0e0e0" stroke-width="6"/>
+                                        <circle cx="40" cy="40" r="35" fill="none" 
+                                                stroke="{% if session.attendance_percentage >= 75 %}#27ae60{% elif session.attendance_percentage >= 50 %}#f39c12{% else %}#e74c3c{% endif %}" 
+                                                stroke-width="6"
+                                                stroke-dasharray="{{ (session.attendance_percentage / 100 * 220)|round(0) }} 220"/>
+                                    </svg>
+                                    <div class="progress-text">
+                                        {{ session.attendance_percentage|round(0) }}%
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-2">
+                                    {{ session.attendance_count }}/{{ session.total_students }} students
+                                </small>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                {% if session.state == 'ready_to_start' %}
+                                    <a href="{{ url_for('dashboard.quick_start_session', class_id=session.class_id) }}" 
+                                       class="btn btn-success btn-sm w-100 mb-2">
+                                        <i class="fas fa-play"></i> Start Session
+                                    </a>
+                                {% elif session.state == 'in_progress' %}
+                                    <a href="{{ url_for('lecturer_attendance.live_attendance', session_id=session.session_id) }}" 
+                                       class="btn btn-primary btn-sm w-100 mb-2">
+                                        <i class="fas fa-user-check"></i> Continue
+                                    </a>
+                                    <button onclick="endSession({{ session.session_id }})" 
+                                            class="btn btn-outline-danger btn-sm w-100">
+                                        <i class="fas fa-stop"></i> End Session
+                                    </button>
+                                {% elif session.state == 'completed' %}
+                                    <a href="{{ url_for('reports.session_report', session_id=session.session_id) }}" 
+                                       class="btn btn-outline-primary btn-sm w-100">
+                                        <i class="fas fa-file-alt"></i> View Report
+                                    </a>
+                                {% elif session.state == 'upcoming' %}
+                                    <span class="badge bg-info">
+                                        <i class="bi bi-clock"></i> Upcoming
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <h5>No sessions scheduled for today</h5>
+                        <p>Create a new session or check your timetable</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickStartModal">
+                            <i class="fas fa-plus"></i> Quick Start Session
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Recent Sessions -->
+            <div class="chart-container">
+                <h4 class="mb-4">
+                    <i class="fas fa-history text-secondary me-2"></i>
+                    Recent Sessions
+                </h4>
+                
+                {% if dashboard.recent_sessions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Class</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Attendance</th>
+                                <th>Rate</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in dashboard.recent_sessions %}
+                            <tr>
+                                <td><strong>{{ session.class_name }}</strong></td>
+                                <td>{{ session.date }}</td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ session.start_time }} - {{ session.end_time }}
+                                    </small>
+                                </td>
+                                <td>{{ session.attendance_count }}/{{ session.total_students }}</td>
+                                <td>
+                                    <span class="badge {% if session.attendance_percentage >= 75 %}bg-success{% elif session.attendance_percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ session.attendance_percentage|round(0) }}%
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('reports.session_report', session_id=session.session_id) }}" 
+                                       class="btn btn-sm btn-outline-primary"
+                                       title="View detailed report">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                    <p class="text-muted text-center py-3">No recent sessions</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Right Column: Stats & Alerts -->
+        <div class="col-lg-4">
+            <!-- Statistics Summary -->
+            <div class="chart-container mb-4">
+                <h4 class="mb-3">
+                    <i class="fas fa-chart-line text-success me-2"></i>
+                    30-Day Statistics
+                </h4>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                        <span class="text-muted">Total Sessions</span>
+                        <strong>{{ dashboard.statistics.total_sessions }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                        <span class="text-muted">Completed</span>
+                        <strong class="text-success">{{ dashboard.statistics.completed_sessions }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                        <span class="text-muted">Completion Rate</span>
+                        <strong>{{ dashboard.statistics.completion_rate }}%</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                        <span class="text-muted">Avg. Attendance</span>
+                        <strong class="{% if dashboard.statistics.average_attendance >= 75 %}text-success{% elif dashboard.statistics.average_attendance >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ dashboard.statistics.average_attendance }}%
+                        </strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Active Classes</span>
+                        <strong>{{ dashboard.statistics.active_classes }}</strong>
+                    </div>
+                </div>
+                <a href="{{ url_for('dashboard.statistics') }}" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-chart-bar"></i> View Detailed Statistics
+                </a>
+            </div>
+            
+            <!-- Low Attendance Alerts -->
+            <div class="chart-container">
+                <h4 class="mb-3">
+                    <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                    Low Attendance Alerts
+                </h4>
+                
+                {% if dashboard.low_attendance_alerts %}
+                <div class="list-group mb-3">
+                    {% for alert in dashboard.low_attendance_alerts[:5] %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>{{ alert.student_name }}</strong>
+                            <span class="alert-badge {{ alert.risk_level }}">
+                                {{ alert.risk_level|upper }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">{{ alert.class_id }}</small>
+                            <small>
+                                <strong>{{ alert.percentage }}%</strong>
+                                <span class="text-muted">({{ alert.attended }}/{{ alert.total }})</span>
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if dashboard.low_attendance_alerts|length > 5 %}
+                <a href="{{ url_for('dashboard.low_attendance_alerts') }}" 
+                   class="btn btn-outline-danger w-100">
+                    <i class="fas fa-list"></i> View All {{ dashboard.low_attendance_alerts|length }} Alerts
+                </a>
+                {% endif %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                        <p>No low attendance alerts</p>
+                        <small>All students are performing well!</small>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="chart-container mt-4">
+                <h4 class="mb-3">
+                    <i class="fas fa-bolt text-warning me-2"></i>
+                    Quick Actions
+                </h4>
+                <button class="quick-action-btn btn btn-primary mb-2" 
+                        data-bs-toggle="modal" data-bs-target="#quickStartModal">
+                    <i class="fas fa-play"></i> Start New Session
+                </button>
+                <a href="{{ url_for('reports.index') }}" 
+                   class="quick-action-btn btn btn-outline-primary mb-2">
+                    <i class="fas fa-file-alt"></i> Generate Report
+                </a>
+                <a href="{{ url_for('lecturer_sessions.list_sessions') }}" 
+                   class="quick-action-btn btn btn-outline-secondary">
+                    <i class="fas fa-calendar"></i> View All Sessions
+                </a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        Unable to load dashboard data. Please try refreshing the page.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Quick Start Modal -->
+<div class="modal fade" id="quickStartModal" tabindex="-1" aria-labelledby="quickStartModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickStartModalLabel">
+                    <i class="fas fa-play-circle me-2"></i>Quick Start Session
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% if classes %}
+                <p class="text-muted">Select a class to start attendance session:</p>
+                <div class="list-group">
+                    {% for cls in classes %}
+                    <a href="{{ url_for('dashboard.quick_start_session', class_id=cls.class_id) }}" 
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-0">{{ cls.class_name }}</h6>
+                                <small class="text-muted">{{ cls.course_code }}</small>
+                            </div>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No classes available</p>
+                    <small>Contact your administrator to assign classes</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Refresh dashboard data
+    function refreshDashboard() {
+        showLoading('Refreshing dashboard...');
+        fetch('{{ url_for("dashboard.refresh_data") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showFlashMessage('Dashboard refreshed successfully', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showFlashMessage('Failed to refresh dashboard', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showFlashMessage('Error refreshing dashboard', 'error');
+            })
+            .finally(() => {
+                hideLoading();
+            });
+    }
+    
+    // End session
+    function endSession(sessionId) {
+        if (!confirmAction('Are you sure you want to end this session? This action cannot be undone.')) {
+            return;
+        }
+        
+        showLoading('Ending session...');
+        fetch(`{{ url_for('dashboard.index') }}/session/${sessionId}/end`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showFlashMessage('Session ended successfully', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showFlashMessage(data.error || 'Failed to end session', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showFlashMessage('Error ending session', 'error');
+        })
+        .finally(() => {
+            hideLoading();
+        });
+    }
+    
+    // Auto-refresh every 2 minutes for active sessions
+    let autoRefreshInterval;
+    
+    function startAutoRefresh() {
+        autoRefreshInterval = setInterval(() => {
+            // Silent refresh - only update data without showing loading
+            fetch('{{ url_for("dashboard.refresh_data") }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Dashboard data refreshed:', data.timestamp);
+                        // Could update specific elements here without full reload
+                    }
+                })
+                .catch(error => console.error('Auto-refresh error:', error));
+        }, 120000); // 2 minutes
+    }
+    
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+    }
+    
+    // Start auto-refresh when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if dashboard and dashboard.today_sessions %}
+        // Only auto-refresh if there are active sessions
+        startAutoRefresh();
+        
+        // Stop auto-refresh when page is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopAutoRefresh();
+            } else {
+                startAutoRefresh();
+            }
+        });
+        {% endif %}
+    });
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', stopAutoRefresh);
+</script>
+{% endblock %}

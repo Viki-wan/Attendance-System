@@ -1,0 +1,59 @@
+<ul class="navbar-nav me-auto">
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint and 'dashboard' in request.endpoint %}active{% endif %}" 
+           href="{{ url_for('dashboard.index') }}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+    </li>
+    
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint and 'sessions' in request.endpoint %}active{% endif %}" 
+           href="{{ url_for('lecturer_sessions.list_sessions') }}">
+            <i class="bi bi-calendar-check"></i> Sessions
+        </a>
+    </li>
+    
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint and 'attendance' in request.endpoint %}active{% endif %}" 
+           href="{{ url_for('lecturer_sessions.todays_sessions') }}">
+            <i class="bi bi-person-check"></i> Attendance
+        </a>
+    </li>
+    
+    <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle {% if request.endpoint and 'reports' in request.endpoint %}active{% endif %}" 
+           href="#" id="reportsDropdown" role="button" data-bs-toggle="dropdown">
+            <i class="bi bi-file-earmark-bar-graph"></i> Reports
+        </a>
+        <ul class="dropdown-menu" aria-labelledby="reportsDropdown">
+            <li>
+                <a class="dropdown-item" href="{{ url_for('reports.index') }}">
+                    <i class="bi bi-grid-3x3-gap"></i> All Reports
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="{{ url_for('reports.index') }}?type=session">
+                    <i class="bi bi-calendar3"></i> Session Reports
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ url_for('reports.index') }}?type=class">
+                    <i class="bi bi-people"></i> Class Reports
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ url_for('reports.index') }}?type=student">
+                    <i class="bi bi-person"></i> Student Reports
+                </a>
+            </li>
+        </ul>
+    </li>
+    
+    <li class="nav-item">
+        <a class="nav-link {% if request.endpoint and 'statistics' in request.endpoint %}active{% endif %}" 
+           href="{{ url_for('dashboard.statistics') }}">
+            <i class="bi bi-graph-up"></i> Statistics
+        </a>
+    </li>
+</ul>
