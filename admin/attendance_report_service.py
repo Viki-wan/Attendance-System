@@ -21,14 +21,24 @@ class AttendanceReportService:
         """)
         return [dict(row) for row in self.cursor.fetchall()]
     
-    def get_classes_by_course(self, course_code):
-        """Get classes for a specific course"""
-        self.cursor.execute("""
+    def get_classes_by_course(self, course_code, year=None, semester=None):
+        """Get classes for a specific course, optionally filtered by year and semester"""
+        query = (
+            """
             SELECT c.class_id, c.class_name, c.course_code, c.year, c.semester 
             FROM classes c
             WHERE c.course_code = ?
-            ORDER BY c.class_id
-        """, (course_code,))
+            """
+        )
+        params = [course_code]
+        if year is not None:
+            query += " AND c.year = ?"
+            params.append(year)
+        if semester is not None:
+            query += " AND c.semester = ?"
+            params.append(semester)
+        query += " ORDER BY c.class_id"
+        self.cursor.execute(query, params)
         return [dict(row) for row in self.cursor.fetchall()]
     
     def get_all_students(self):
@@ -42,7 +52,7 @@ class AttendanceReportService:
     
     def get_filtered_attendance(self, date_from=None, date_to=None, course=None, 
                               class_id=None, student_id=None, status=None, 
-                              include_absent=False, year=None):
+                              include_absent=False, year=None, semester=None):
         """
         Get filtered attendance records, including absentees if requested.
         If include_absent is True, students with no attendance record for a session are shown as 'Absent'.
@@ -86,6 +96,9 @@ class AttendanceReportService:
         if year:
             query += " AND s.year_of_study = ?"
             params.append(year)
+        if semester:
+            query += " AND c.semester = ?"
+            params.append(semester)
         if status:
             query += " AND COALESCE(a.status, 'Absent') = ?"
             params.append(status)
@@ -146,7 +159,7 @@ class AttendanceReportService:
         return list(grouped_data.values())
     
     def generate_student_wise_report(self, date_from=None, date_to=None, 
-                                   course=None, class_id=None, year=None, include_absent=True):
+                                   course=None, class_id=None, year=None, semester=None, include_absent=True):
         """Generate a student-wise attendance report"""
         # Get all students based on filters
         query = """
@@ -175,6 +188,9 @@ class AttendanceReportService:
         if year:
             query += " AND s.year_of_study = ?"
             params.append(year)
+        if semester:
+            query += " AND c.semester = ?"
+            params.append(semester)
             
         self.cursor.execute(query, params)
         students = [dict(row) for row in self.cursor.fetchall()]
@@ -184,7 +200,7 @@ class AttendanceReportService:
         for student in students:
             attendance_data = self.get_filtered_attendance(
                 date_from, date_to, course, student['class_id'],
-                student['student_id'], None, include_absent, year
+                student['student_id'], None, include_absent, year, semester
             )
             
             if attendance_data:
@@ -225,7 +241,7 @@ class AttendanceReportService:
         return report_data
     
     def generate_class_wise_report(self, date_from=None, date_to=None, 
-                                 course=None, class_id=None, year=None, include_absent=True):
+                                 course=None, class_id=None, year=None, semester=None, include_absent=True):
         """Generate a class-wise attendance report"""
         # Get all classes based on filters
         query = """
@@ -245,6 +261,9 @@ class AttendanceReportService:
         if class_id:
             query += " AND c.class_id = ?"
             params.append(class_id)
+        if semester:
+            query += " AND c.semester = ?"
+            params.append(semester)
             
         self.cursor.execute(query, params)
         classes = [dict(row) for row in self.cursor.fetchall()]
@@ -259,17 +278,17 @@ class AttendanceReportService:
                 JOIN student_courses sc ON s.student_id = sc.student_id
                 WHERE sc.course_code = ?
             """
+            student_params = [class_item['course_code']]
             if year:
                 students_query += " AND s.year_of_study = ?"
-                self.cursor.execute(students_query, [class_item['course_code'], year])
-            else:
-                self.cursor.execute(students_query, [class_item['course_code']])
+                student_params.append(year)
+            self.cursor.execute(students_query, student_params)
             students = [dict(row) for row in self.cursor.fetchall()]
             
             # Get attendance data for the class
             attendance_data = self.get_filtered_attendance(
                 date_from, date_to, class_item['course_code'],
-                class_item['class_id'], None, None, include_absent, year
+                class_item['class_id'], None, None, include_absent, year, semester
             )
             
             if attendance_data:
@@ -326,7 +345,7 @@ class AttendanceReportService:
         
         return report_data
     
-    def get_classes_by_course_and_year(self, course_code=None, year=None):
+    def get_classes_by_course_and_year(self, course_code=None, year=None, semester=None):
         query = "SELECT class_id, class_name, course_code, year, semester FROM classes WHERE 1=1"
         params = []
         if course_code:
@@ -335,6 +354,9 @@ class AttendanceReportService:
         if year:
             query += " AND year = ?"
             params.append(year)
+        if semester:
+            query += " AND semester = ?"
+            params.append(semester)
         query += " ORDER BY class_id"
         self.cursor.execute(query, params)
         return [dict(row) for row in self.cursor.fetchall()]

@@ -31,6 +31,11 @@ class StartAttendanceWindow(QWidget):
         self.session_service = SessionService(self.db_service)
         self.settings = self.db_service.load_settings()
         self.face_service = FaceRecognitionService(self.settings, self.db_service)
+        # Ensure students' current_semester matches the current term
+        try:
+            self.db_service.sync_students_current_semester()
+        except Exception as _e:
+            print("Semester sync failed during StartAttendanceWindow init")
         
         # Session tracking variables
         self.current_session = None
@@ -132,6 +137,11 @@ class StartAttendanceWindow(QWidget):
 
     def load_today_sessions(self):
         """Load today's sessions into the combo box"""
+        # Keep student semesters in sync before loading
+        try:
+            self.db_service.sync_students_current_semester()
+        except Exception as _e:
+            print("Semester sync failed before loading sessions")
         self.session_combo.clear()
         self.attendance_table.setRowCount(0)
         
