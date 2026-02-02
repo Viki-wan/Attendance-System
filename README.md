@@ -80,6 +80,13 @@ The admin panel is a feature-rich desktop application for system administrators.
   - Session management
   - Activity logging
   - Access control
+ 
+<img width="1366" height="768" alt="Screenshot (132)" src="https://github.com/user-attachments/assets/373becad-d251-4bbd-a3f1-76fa2a4fc5a2" />
+<img width="1366" height="768" alt="Screenshot (133)" src="https://github.com/user-attachments/assets/a7ddd467-7b59-4974-94ba-538b06c30ad3" />
+<img width="1366" height="768" alt="Screenshot (163)" src="https://github.com/user-attachments/assets/1824ae0a-5c72-4324-9e03-892255e07b80" />
+<img width="1366" height="768" alt="Screenshot (165)" src="https://github.com/user-attachments/assets/799ed6c0-6c23-434c-9afd-f561307fbcaf" />
+
+
 
 ### 👨‍🏫 Lecturer Portal (Flask Web Application)
 
@@ -92,6 +99,9 @@ A modern web-based interface for lecturers to manage their classes and sessions.
   - Quick access to recent activities
   - Attendance statistics summary
   - Course and class information
+
+    <img width="1366" height="768" alt="Screenshot (212)" src="https://github.com/user-attachments/assets/e079ad4a-d49d-442e-943e-809aa431da9c" />
+
 
 - **Live Attendance Capture**
   - Real-time face recognition via browser camera
@@ -120,6 +130,10 @@ A modern web-based interface for lecturers to manage their classes and sessions.
   - Export to CSV/PDF
   - Visual charts and graphs
   - Attendance trends analysis
+ 
+    <img width="1366" height="768" alt="Screenshot (214)" src="https://github.com/user-attachments/assets/f15d8fbd-2db6-4030-aebc-b475ed74cc62" />
+    
+
 
 - **Preferences**
   - Notification settings
@@ -580,4 +594,7 @@ For issues, questions, or contributions:
 ---
 
 **Built with ❤️ for educational institutions**
+
+
+
 
