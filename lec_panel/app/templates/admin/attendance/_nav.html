@@ -1,0 +1,23 @@
+{# Sub-navigation shared by the attendance pages. Set `active_tab` before including.
+    If the route passes `export_links`, the Export buttons appear at the right (6c). #}
+ <ul class="nav nav-pills mb-4 flex-wrap gap-1 align-items-center">
+     <li class="nav-item">
+         <a class="nav-link {% if active_tab == 'sessions' %}active{% endif %}"
+            href="{{ url_for('admin_attendance.index') }}"><i class="bi bi-calendar-check"></i> Sessions</a>
+     </li>
+     <li class="nav-item">
+         <a class="nav-link {% if active_tab == 'classes' %}active{% endif %}"
+            href="{{ url_for('admin_attendance.classes') }}"><i class="bi bi-collection"></i> Classes</a>
+     </li>
+     <li class="nav-item">
+         <a class="nav-link {% if active_tab == 'students' %}active{% endif %}"
+            href="{{ url_for('admin_attendance.students') }}"><i class="bi bi-people"></i> Students</a>
+     </li>
+     <li class="nav-item">
+         <a class="nav-link {% if active_tab == 'corrections' %}active{% endif %}"
+            href="{{ url_for('admin_attendance.corrections') }}"><i class="bi bi-pencil-square"></i> Corrections log</a>
+     </li>
+     {% if export_links is defined and export_links %}
+     <li class="nav-item ms-auto">{% include 'admin/attendance/_export_menu.html' %}</li>
+     {% endif %}
+ </ul>

@@ -9,6 +9,7 @@ from app import db
 from app.models import ClassSession, Attendance, Student
 from app.services.face_recognition_service import FaceRecognitionService
 from app.services.camera_service import CameraService
+from app.services.settings_admin_service import get_setting
 from app.tasks.face_processing import (
     process_frame_task,
     mark_attendance_task,
@@ -220,10 +221,12 @@ def get_expected_students(session_id):
     if not class_obj:
         return jsonify({'error': 'Class not found'}), 404
     
-    # Get enrolled students
-    students = Student.query.join(Student.courses).filter(
-        Student.courses.any(course_code=class_obj.course_code),
-        Student.is_active == True
+    # Get enrolled students (using StudentCourse junction table)
+    from app.models.course import StudentCourse
+    students = Student.query.join(StudentCourse).filter(
+        StudentCourse.course_code == class_obj.course_code,
+        Student.is_active == True,
+        StudentCourse.status == 'Active'
     ).all()
     
     # Get attendance status
@@ -277,42 +280,48 @@ def get_attendance_status(session_id):
 @login_required
 @owns_session
 def recognition_settings(session_id):
-    """Get or update recognition settings for session"""
-    
+    """
+    Get or update recognition settings for session.
+
+    The match sensitivity is owned by the admin Settings page (validated, 30-70,
+    default 50), so it is read here but can no longer be changed from this endpoint.
+    The other three values are unchanged: they are stored in the settings table but
+    nothing in the backend reads them yet.
+    """
+    from app.models import Settings
+
     if request.method == 'GET':
-        # Get current settings
-        from app.models import Setting
-        settings = Setting.get_all_settings()
-        
         return jsonify({
             'success': True,
             'settings': {
-                'sensitivity': settings.get('face_recognition_sensitivity', '50'),
-                'required_matches': settings.get('required_matches', '3'),
-                'save_unknown_faces': settings.get('save_unknown_faces', '1'),
-                'min_confidence': settings.get('min_confidence_threshold', '0.6')
+                'sensitivity': str(get_setting('face_recognition_sensitivity')),
+                'required_matches': Settings.get_value('required_matches', '3'),
+                'save_unknown_faces': Settings.get_value('save_unknown_faces', '1'),
+                'min_confidence': Settings.get_value('min_confidence_threshold', '0.6')
             }
         })
-    
-    else:  # POST
-        data = request.get_json()
-        
-        # Update settings
-        from app.models import Setting
-        
-        if 'sensitivity' in data:
-            Setting.set('face_recognition_sensitivity', str(data['sensitivity']))
-        
-        if 'required_matches' in data:
-            Setting.set('required_matches', str(data['required_matches']))
-        
-        if 'save_unknown_faces' in data:
-            Setting.set('save_unknown_faces', '1' if data['save_unknown_faces'] else '0')
-        
+
+    # POST
+    data = request.get_json(silent=True) or {}
+
+    if 'sensitivity' in data:
         return jsonify({
-            'success': True,
-            'message': 'Settings updated'
-        })
+            'success': False,
+            'error': 'Face match sensitivity is set by an administrator (Admin > Settings)'
+        }), 403
+
+    if 'required_matches' in data:
+        Settings.set_value('required_matches', str(data['required_matches']),
+                           category='face_recognition')
+
+    if 'save_unknown_faces' in data:
+        Settings.set_value('save_unknown_faces', '1' if data['save_unknown_faces'] else '0',
+                           category='face_recognition')
+
+    return jsonify({
+        'success': True,
+        'message': 'Settings updated'
+    })
 
 
 @bp.route('/validate-camera', methods=['POST'])

@@ -1,0 +1,227 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Generate Sessions - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1100px; margin: 0 auto;">
+    <div class="mb-3">
+        <h1 class="h3 mb-1"><i class="bi bi-lightning-charge me-2"></i>Generate Sessions</h1>
+        <p class="text-muted mb-0">
+            Turn the weekly timetable into dated sessions. Nothing is written until you confirm the preview.
+        </p>
+    </div>
+
+    {% set active_tab = 'generate' %}
+    {% include 'admin/timetable/_nav.html' %}
+
+    <!-- Parameters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="post" action="{{ url_for('admin_timetable.generate_preview') }}" id="gen-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Semester</label>
+                        <select name="semester" class="form-select">
+                            {% for s in semesters %}
+                            <option value="{{ s }}" {% if form.semester == s %}selected{% endif %}>Semester {{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Start date</label>
+                        <input type="date" name="start_date" class="form-control" value="{{ form.start_date }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">End date</label>
+                        <input type="date" name="end_date" class="form-control" value="{{ form.end_date }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Scope</label>
+                        <select name="scope" id="scope" class="form-select">
+                            <option value="all" {% if form.scope == 'all' %}selected{% endif %}>All classes in the semester</option>
+                            <option value="course" {% if form.scope == 'course' %}selected{% endif %}>One course</option>
+                            <option value="class" {% if form.scope == 'class' %}selected{% endif %}>One class</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6" id="scope-course" style="display: none;">
+                        <label class="form-label">Course</label>
+                        <select name="course_code" class="form-select">
+                            <option value="">Select a course&hellip;</option>
+                            {% for c in courses %}
+                            <option value="{{ c.course_code }}" {% if form.course_code == c.course_code %}selected{% endif %}>{{ c.course_code }} &mdash; {{ c.course_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6" id="scope-class" style="display: none;">
+                        <label class="form-label">Class</label>
+                        <select name="class_id" class="form-select">
+                            <option value="">Select a class&hellip;</option>
+                            {% for c in classes %}
+                            <option value="{{ c.class_id }}" {% if form.class_id == c.class_id %}selected{% endif %}>{{ c.class_id }} &mdash; {{ c.class_name }} (S{{ c.semester }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="roll_expired" value="1" id="roll_expired"
+                                   {% if form.roll_expired %}checked{% endif %}>
+                            <label class="form-check-label" for="roll_expired">
+                                Roll forward expired timetable entries
+                                <span class="text-muted">&mdash; entries whose effective range ended before the end date are moved
+                                to this semester&rsquo;s dates. Without this they produce no sessions after their old end date.</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-eye"></i> Preview</button>
+            </form>
+        </div>
+    </div>
+
+    {% if plan %}
+    <!-- Preview -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="mb-1">Preview</h5>
+            <p class="text-muted mb-3">
+                {{ plan.scope_label }} &middot;
+                {{ plan.start.strftime('%a %d %b %Y') }} &rarr; {{ plan.end.strftime('%a %d %b %Y') }} &middot;
+                {{ plan.entries_considered }} timetable entr{{ 'y' if plan.entries_considered == 1 else 'ies' }} considered
+            </p>
+
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3"><div class="border rounded p-3 text-center">
+                    <div class="h3 mb-0 text-success">{{ plan.total }}</div>
+                    <div class="text-muted small">sessions to create</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="border rounded p-3 text-center">
+                    <div class="h3 mb-0">{{ plan.duplicates }}</div>
+                    <div class="text-muted small">already exist</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="border rounded p-3 text-center">
+                    <div class="h3 mb-0">{{ plan.skipped_holiday }}</div>
+                    <div class="text-muted small">skipped (holidays)</div>
+                </div></div>
+                <div class="col-6 col-md-3"><div class="border rounded p-3 text-center">
+                    <div class="h3 mb-0 {{ 'text-warning' if plan.skipped_no_lecturer else '' }}">{{ plan.skipped_no_lecturer }}</div>
+                    <div class="text-muted small">skipped (no lecturer)</div>
+                </div></div>
+            </div>
+
+            {% if plan.expired_entries %}
+            <div class="alert {{ 'alert-info' if plan.roll_expired else 'alert-warning' }}">
+                <i class="bi bi-hourglass-split me-1"></i>
+                <strong>{{ plan.expired_entries|length }}</strong> timetable entr{{ 'y has' if plan.expired_entries|length == 1 else 'ies have' }}
+                an effective range that ends before {{ plan.end.strftime('%d %b %Y') }}.
+                {% if plan.roll_expired %}
+                    They will be rolled forward to this semester&rsquo;s dates when you generate.
+                {% else %}
+                    They produce no sessions after their old end date{% if plan.skipped_expired %} ({{ plan.skipped_expired }} skipped){% endif %}.
+                    Tick &ldquo;Roll forward expired timetable entries&rdquo; above and preview again.
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if plan.no_lecturer_classes %}
+            <div class="alert alert-warning">
+                <i class="bi bi-person-x me-1"></i>
+                No active lecturer, so no sessions for:
+                {% for cid in plan.no_lecturer_classes %}<code>{{ cid }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+                <a href="{{ url_for('admin_courses.classes_index') }}" class="alert-link">Assign lecturers</a> and generate again.
+            </div>
+            {% endif %}
+
+            {% if plan.skipped_past %}
+            <p class="text-muted small"><i class="bi bi-clock-history me-1"></i>{{ plan.skipped_past }} slot(s) earlier today were skipped: sessions are never created in the past.</p>
+            {% endif %}
+
+            {% if plan.holiday_hits %}
+            <p class="small mb-3">
+                <strong>Holidays hit:</strong>
+                {% for d, name in plan.holiday_hits %}{{ d.strftime('%a %d %b') }} ({{ name }}){% if not loop.last %}, {% endif %}{% endfor %}
+            </p>
+            {% endif %}
+
+            {% if plan.conflicts %}
+            <div class="alert alert-warning">
+                <strong>{{ plan.conflicts|length }} session(s) skipped because of clashes</strong>
+                <ul class="mb-0 mt-2 small">
+                    {% for c in plan.conflicts[:15] %}
+                    <li><code>{{ c.class_id }}</code> {{ c.date.strftime('%a %d %b') }} {{ c.start_time }}: {{ c.reason }}</li>
+                    {% endfor %}
+                </ul>
+                {% if plan.conflicts|length > 15 %}<div class="small mt-1">&hellip;and {{ plan.conflicts|length - 15 }} more.</div>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if plan.sample %}
+            <h6 class="mt-4">First {{ plan.sample|length }} of {{ plan.total }}</h6>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-3">
+                    <thead class="table-light"><tr><th>Date</th><th>Time</th><th>Class</th><th>Lecturer</th></tr></thead>
+                    <tbody>
+                        {% for r in plan.sample %}
+                        <tr>
+                            <td>{{ r.day.strftime('%a %d %b %Y') }}</td>
+                            <td>{{ r.start_time }}&ndash;{{ r.end_time }}</td>
+                            <td><code>{{ r.class_id }}</code></td>
+                            <td>{{ r.lecturer }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            {% if plan.per_class %}
+            <details class="mb-3">
+                <summary class="text-muted small">Sessions per class ({{ plan.per_class|length }} classes)</summary>
+                <div class="small mt-2">
+                    {% for cid, n in plan.per_class %}<span class="badge bg-light text-dark border me-1 mb-1">{{ cid }}: {{ n }}</span>{% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% set can_run = plan.total > 0 or (plan.roll_expired and plan.expired_entries) %}
+            <form method="post" action="{{ url_for('admin_timetable.generate_run') }}"
+                  onsubmit="return confirm('Generate {{ plan.total }} session(s)?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="semester" value="{{ form.semester or '' }}">
+                <input type="hidden" name="scope" value="{{ form.scope }}">
+                <input type="hidden" name="course_code" value="{{ form.course_code }}">
+                <input type="hidden" name="class_id" value="{{ form.class_id }}">
+                <input type="hidden" name="start_date" value="{{ form.start_date }}">
+                <input type="hidden" name="end_date" value="{{ form.end_date }}">
+                {% if form.roll_expired %}<input type="hidden" name="roll_expired" value="1">{% endif %}
+                <button type="submit" class="btn btn-success" {% if not can_run %}disabled{% endif %}>
+                    <i class="bi bi-lightning-charge"></i>
+                    {% if plan.total > 0 %}Generate {{ plan.total }} session{{ '' if plan.total == 1 else 's' }}{% else %}Apply roll-forward{% endif %}
+                </button>
+                {% if not can_run %}<span class="text-muted small ms-2">Nothing to create.</span>{% endif %}
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var scope = document.getElementById('scope');
+    var course = document.getElementById('scope-course');
+    var cls = document.getElementById('scope-class');
+    function sync() {
+        course.style.display = scope.value === 'course' ? '' : 'none';
+        cls.style.display = scope.value === 'class' ? '' : 'none';
+    }
+    scope.addEventListener('change', sync);
+    sync();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Yearly promotion - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1000px; margin: 0 auto;">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-mortarboard me-2"></i>Yearly promotion</h1>
+            <p class="text-muted mb-0">
+                When a new academic year starts, this moves students up a year of study, graduates the final
+                year and sets up the new year's semester 1 enrolments. You preview first and can hold students
+                back; nothing changes until you run it, and it can only run once per academic year.
+            </p>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_settings.index') }}">
+            <i class="bi bi-arrow-left"></i> Settings
+        </a>
+    </div>
+
+    <!-- Status -->
+    <div class="alert alert-{{ state.level }} {% if state.due %}border-warning{% endif %}">
+        <i class="bi {% if state.due or state.blocked or state.reversed or state.needs_baseline %}bi-exclamation-triangle{% else %}bi-check-circle{% endif %} me-1"></i>
+        {{ state.message }}
+        {% if state.waiting %}
+        <a class="alert-link ms-1" href="{{ url_for('admin_settings.rollover') }}">Open the semester rollover</a>
+        {% endif %}
+    </div>
+
+    {% if state.needs_baseline %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="post" action="{{ url_for('admin_settings.promotion_baseline') }}"
+                  onsubmit='return confirm({{ ("Record " ~ state.label ~ " as the academic year the students are promoted for? Only do this if their years of study already match it. No student is changed.")|tojson }});'>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <p class="small mb-2">
+                    This writes one small marker. No student, enrolment or timetable row is changed.
+                    Without it the yearly promotion is never offered.
+                </p>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check2-circle"></i> Record {{ state.label }} as the current academic year
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% for n in notes %}
+    <div class="alert alert-warning py-2 small">{{ n }}</div>
+    {% endfor %}
+
+    {% if plan %}
+    <form method="post" action="{{ url_for('admin_settings.promotion_preview') }}" id="promotion-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="fingerprint" value="{{ plan.fingerprint }}">
+
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Preview: students move into {{ plan.label }}</h5>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    This is exactly what will change if you run it now. Nothing has been written yet.
+                    The final year of study is <strong>{{ plan.final_year }}</strong>
+                    (<a href="{{ url_for('admin_settings.index') }}">Settings</a>).
+                </p>
+                <table class="table table-sm align-middle mb-3">
+                    <tbody>
+                        <tr><td>Students promoted to the next year</td><td class="text-end fw-semibold">{{ plan.counts.promote }}</td></tr>
+                        <tr><td>Final-year students graduating (deactivated, nothing deleted)</td><td class="text-end fw-semibold">{{ plan.counts.graduate }}</td></tr>
+                        <tr><td>Students held back (keep their year)</td><td class="text-end fw-semibold">{{ plan.counts.held }}</td></tr>
+                        <tr><td>New semester 1 enrolment rows</td><td class="text-end fw-semibold">{{ plan.counts.create }}</td></tr>
+                        <tr>
+                            <td>
+                                Earlier rows reopened (status back to Active)
+                                <div class="small text-muted">Held-back students already have a row for their year from last year; Completed or Failed rows are reopened instead of duplicated.</div>
+                            </td>
+                            <td class="text-end fw-semibold">{{ plan.counts.reopen }}</td>
+                        </tr>
+                        {% if plan.counts.untouched %}
+                        <tr><td>Students with no year of study (left as they are)</td><td class="text-end fw-semibold">{{ plan.counts.untouched }}</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+
+                <ul class="small text-muted mb-3">
+                    <li>
+                        <strong>Classes move by design.</strong> A class's students are the active students with the
+                        same course and year of study, so promoted students leave their old year's classes and join the
+                        next year's. Past session sheets of the old class will show them as &ldquo;not in class now&rdquo;.
+                    </li>
+                    <li>No sessions, timetable entries or attendance records are changed.</li>
+                    <li>{{ plan.counts.inactive_students }} inactive student(s) are not touched. Graduates can be reactivated later from the student page.</li>
+                    {% if plan.counts.new_since_start %}
+                    <li class="text-body">
+                        <i class="bi bi-person-plus"></i>
+                        {{ plan.counts.new_since_start }} student(s) were registered on or after {{ plan.window_start }}
+                        (marked <span class="badge bg-info text-dark">new</span> below). If they just joined, tick them to hold them back so they do not move up.
+                    </li>
+                    {% endif %}
+                </ul>
+
+                <h6>Movement by course and year</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-striped align-middle">
+                        <thead>
+                            <tr>
+                                <th>Course</th><th class="text-end">Year</th><th class="text-end">Now</th>
+                                <th class="text-end">Leaving</th><th class="text-end">Staying</th>
+                                <th class="text-end">Arriving</th><th class="text-end">After</th><th>Class</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in plan.movement %}
+                            <tr {% if m.warn %}class="table-warning"{% endif %}>
+                                <td>{{ m.course_code }}</td>
+                                <td class="text-end">{{ m.year }}</td>
+                                <td class="text-end">{{ m.now }}</td>
+                                <td class="text-end">{{ m.leaving }}</td>
+                                <td class="text-end">{{ m.staying }}</td>
+                                <td class="text-end">{{ m.arriving }}</td>
+                                <td class="text-end fw-semibold">{{ m.after }}</td>
+                                <td class="small">
+                                    {% if m.warn %}<span class="text-danger">No active class for this year</span>
+                                    {% elif m.has_class %}ok{% else %}-{% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if plan.counts.no_class %}
+                <div class="alert alert-warning py-2 small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    {{ plan.counts.no_class }} course/year group(s) would have students but no active class
+                    (for example a programme shorter than the final year). Create the class first, or change the
+                    final year of study, before running.
+                </div>
+                {% endif %}
+
+                <!-- Hold-back checklist -->
+                <h6>Hold students back (repeaters, deferrals)</h6>
+                <p class="small text-muted mb-2">
+                    Tick a student to keep them in their current year. Held-back students stay active, keep their
+                    class and get a semester 1 row for the same year. Open a group to see its students.
+                    After changing ticks or pasting IDs, press <strong>Update preview</strong>; the Run button only works for the preview you have just updated.
+                </p>
+                <div class="mb-3">
+                    {% for c in plan.cohorts %}
+                    <details class="border rounded mb-1" {% if c.held %}open{% endif %}>
+                        <summary class="px-3 py-2">
+                            {{ c.course_code }} &middot; year {{ c.year }}
+                            <span class="text-muted small">({{ c.students|length }} students{% if c.held %}, <span class="text-body fw-semibold">{{ c.held }} held back</span>{% endif %})</span>
+                        </summary>
+                        <div class="px-3 pb-2">
+                            <table class="table table-sm mb-0">
+                                <tbody>
+                                    {% for s in c.students %}
+                                    <tr>
+                                        <td style="width:2.5rem">
+                                            <input class="form-check-input" type="checkbox" name="hold"
+                                                   value="{{ s.student_id }}" id="h_{{ loop.index }}_{{ c.course_code }}_{{ c.year }}"
+                                                   {% if s.held %}checked{% endif %}>
+                                        </td>
+                                        <td>
+                                            <label class="mb-0" for="h_{{ loop.index }}_{{ c.course_code }}_{{ c.year }}">
+                                                {{ s.student_id }} &mdash; {{ s.name }}
+                                            </label>
+                                            {% if s.new %}<span class="badge bg-info text-dark ms-1">new</span>{% endif %}
+                                        </td>
+                                        <td class="small text-muted text-end">
+                                            {% if s.action == 'graduate' %}graduates
+                                            {% elif s.action == 'hold' %}stays in year {{ s.year }}
+                                            {% else %}to year {{ s.new_year }}{% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small mb-1" for="hold_ids">Or paste student IDs to hold back (one per line, or separated by commas)</label>
+                    <textarea class="form-control form-control-sm" id="hold_ids" name="hold_ids" rows="3"
+                              placeholder="Added to the ticked students when you press Update preview"></textarea>
+                </div>
+
+                {% if plan.skipped %}
+                <h6>
+                    {{ plan.counts.skipped }} student(s) get no new or reopened row
+                    <button type="submit" class="btn btn-sm btn-outline-secondary ms-2"
+                            formaction="{{ url_for('admin_settings.promotion_export') }}" name="kind" value="skipped">
+                        <i class="bi bi-download"></i> Skipped list (CSV)
+                    </button>
+                </h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm">
+                        <thead><tr><th>Student</th><th>Course</th><th>Year after</th><th>Why</th></tr></thead>
+                        <tbody>
+                            {% for s in skipped_shown %}
+                            <tr>
+                                <td>{{ s.student_id }}</td>
+                                <td>{{ s.course_code or '-' }}</td>
+                                <td>{{ s.year if s.year is not none else '-' }}</td>
+                                <td>{{ s.reason_text }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if plan.counts.skipped > max_skipped_shown %}
+                    <div class="small text-muted">Showing the first {{ max_skipped_shown }}. The CSV has all of them.</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Update preview
+                    </button>
+                    <button type="submit" class="btn btn-outline-secondary"
+                            formaction="{{ url_for('admin_settings.promotion_export') }}" name="kind" value="all">
+                        <i class="bi bi-download"></i> Full list of every student (CSV)
+                    </button>
+                </div>
+
+                <div class="border rounded p-3 bg-light">
+                    <p class="small mb-2">
+                        <i class="bi bi-shield-check me-1"></i>
+                        A verified backup of the database is written to
+                        <code>{{ backup_dir or 'the backups folder next to the database' }}</code>
+                        before anything changes. An earlier backup is never overwritten. If the backup fails,
+                        nothing is changed. Everything else happens in one transaction: it all succeeds or none of it does.
+                        Download the full list first if you want a record of who was promoted.
+                    </p>
+                    <button type="submit" class="btn btn-danger"
+                            formaction="{{ url_for('admin_settings.promotion_run') }}"
+                            onclick='return confirm({{ ("Run the yearly promotion for " ~ plan.label ~ "? " ~ plan.counts.promote ~ " students move up, " ~ plan.counts.graduate ~ " graduate, " ~ plan.counts.held ~ " are held back. A backup is made first. This can only be run once for this academic year.")|tojson }});'>
+                        <i class="bi bi-play-fill"></i> Run promotion now
+                    </button>
+                    <span class="small text-muted ms-2">Preview id {{ plan.fingerprint }}</span>
+                </div>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+
+    <!-- Last run -->
+    <div class="card mb-5">
+        <div class="card-header bg-white"><h5 class="mb-0">Last promotion</h5></div>
+        <div class="card-body">
+            {% if marker %}
+            <p class="mb-2">
+                Recorded: <strong>{{ marker.description or marker.value }}</strong>
+                {% if marker.updated_at %}<span class="small text-muted" title="UTC">&middot; {{ marker.updated_at }}</span>{% endif %}
+            </p>
+            {% else %}
+            <p class="text-muted mb-2">Nothing has been recorded yet.</p>
+            {% endif %}
+
+            {% if recent %}
+            <div class="small text-muted mb-1">Recent runs (from the activity log)</div>
+            <ul class="small mb-0">
+                {% for r in recent %}
+                <li><span title="UTC">{{ r.timestamp }}</span> &mdash; {{ r.user }}: {{ r.description }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

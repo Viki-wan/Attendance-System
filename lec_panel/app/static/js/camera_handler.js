@@ -4,103 +4,137 @@
  */
 
 class CameraHandler {
-    constructor(videoElement, canvasElement) {
-        this.videoElement = videoElement;
-        this.canvasElement = canvasElement;
-        this.ctx = canvasElement.getContext('2d');
+    constructor(canvasId, options = {}) {
+        // CRITICAL FIX: Better canvas element detection
+        if (typeof canvasId === 'string') {
+            this.canvas = document.getElementById(canvasId);
+            if (!this.canvas) {
+                // Try querySelector as fallback
+                this.canvas = document.querySelector(`#${canvasId}`);
+            }
+        } else if (canvasId instanceof HTMLCanvasElement) {
+            this.canvas = canvasId;
+        } else {
+            this.canvas = null;
+        }
+        
+        if (!this.canvas) {
+            console.error(`Canvas element "${canvasId}" not found in DOM`);
+            throw new Error(`Canvas element not found: ${canvasId}`);
+        }
+        
+        // Verify it's actually a canvas
+        if (!(this.canvas instanceof HTMLCanvasElement)) {
+            throw new Error('Provided element is not a canvas');
+        }
+        
+        this.ctx = this.canvas.getContext('2d');
+        if (!this.ctx) {
+            throw new Error('Failed to get 2D context from canvas');
+        }
+        
+        console.log('✅ Canvas element found and validated:', this.canvas.id);
+        
+        // Create hidden video element
+        this.video = document.createElement('video');
+        this.video.setAttribute('autoplay', '');
+        this.video.setAttribute('playsinline', '');
+        this.video.style.display = 'none';
+        document.body.appendChild(this.video);
+        
         this.stream = null;
-        this.isStreaming = false;
+        this.isActive = false;  // FIX: Changed from this.active
         this.captureInterval = null;
+        this.drawingLoop = null;
         
         // Settings
-        this.targetFPS = 30;
-        this.processingFPS = 2; // Send 2 frames per second for processing
-        this.frameQuality = 0.85; // JPEG quality
-        this.maxWidth = 640; // Max width for processing
+        this.width = options.width || 640;
+        this.height = options.height || 480;
+        this.fps = options.fps || 10;
+        this.frameQuality = 0.85;
+        
+        // Set canvas size
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
         
         // State
         this.frameCount = 0;
-        this.lastProcessTime = 0;
-        this.recognitionResults = [];
+        this.devices = [];
+        this.currentDeviceIndex = 0;
         
         // Callbacks
-        this.onFrameCapture = null;
+        this.onFrame = null;
         this.onError = null;
-        this.onStreamStart = null;
-        this.onStreamStop = null;
+        
+        console.log('✅ CameraHandler initialized successfully');
     }
     
     /**
-     * Initialize and start camera stream
+     * Start camera stream
      */
-    async startCamera(constraints = {}) {
+    async start(deviceId = null) {
         try {
-            // Default constraints
-            const defaultConstraints = {
+            console.log('Starting camera...');
+            
+            // Stop existing stream if any
+            if (this.stream) {
+                this.stop();
+            }
+            
+            // Request camera access
+            const constraints = {
                 video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    facingMode: 'user',
-                    frameRate: { ideal: this.targetFPS }
+                    width: { ideal: this.width },
+                    height: { ideal: this.height },
+                    facingMode: 'user'
                 },
                 audio: false
             };
             
-            // Merge with provided constraints
-            const finalConstraints = {
-                ...defaultConstraints,
-                ...constraints
-            };
-            
-            // Request camera access
-            this.stream = await navigator.mediaDevices.getUserMedia(finalConstraints);
-            
-            // Attach to video element
-            this.videoElement.srcObject = this.stream;
-            
-            // Wait for video to load
-            await new Promise((resolve) => {
-                this.videoElement.onloadedmetadata = () => {
-                    this.videoElement.play();
-                    resolve();
-                };
-            });
-            
-            // Set canvas size to match video
-            this.canvasElement.width = this.videoElement.videoWidth;
-            this.canvasElement.height = this.videoElement.videoHeight;
-            
-            this.isStreaming = true;
-            
-            // Start frame capture
-            this.startFrameCapture();
-            
-            if (this.onStreamStart) {
-                this.onStreamStart();
+            if (deviceId) {
+                constraints.video.deviceId = { exact: deviceId };
             }
             
-            console.log('📷 Camera started successfully');
+            this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Attach to video element
+            this.video.srcObject = this.stream;
+            
+            // Wait for video to be ready
+            await new Promise((resolve, reject) => {
+                this.video.onloadedmetadata = () => {
+                    this.video.play()
+                        .then(resolve)
+                        .catch(reject);
+                };
+                
+                // Timeout after 10 seconds
+                setTimeout(() => reject(new Error('Video load timeout')), 10000);
+            });
+            
+            this.isActive = true;
+            
+            // Start drawing to canvas
+            this.startDrawing();
+            
+            console.log('✅ Camera started successfully');
             return true;
             
         } catch (error) {
             console.error('❌ Failed to start camera:', error);
             
             if (this.onError) {
-                this.onError({
-                    type: 'camera_access',
-                    message: 'Failed to access camera',
-                    error: error
-                });
+                this.onError(error);
             }
             
-            return false;
+            throw error;
         }
     }
     
     /**
      * Stop camera stream
      */
-    stopCamera() {
+    stop() {
         if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
             this.stream = null;
@@ -111,193 +145,90 @@ class CameraHandler {
             this.captureInterval = null;
         }
         
-        this.isStreaming = false;
+        if (this.drawingLoop) {
+            cancelAnimationFrame(this.drawingLoop);
+            this.drawingLoop = null;
+        }
         
-        if (this.onStreamStop) {
-            this.onStreamStop();
+        this.isActive = false;
+        
+        // Clear canvas
+        if (this.ctx && this.canvas) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
         
         console.log('📷 Camera stopped');
     }
     
     /**
-     * Start periodic frame capture
+     * Start drawing video to canvas
      */
-    startFrameCapture() {
-        const captureIntervalMs = 1000 / this.processingFPS;
-        
-        this.captureInterval = setInterval(() => {
-            if (this.isStreaming) {
-                this.captureFrame();
+    startDrawing() {
+        const draw = () => {
+            if (!this.isActive) return;
+            
+            try {
+                // Draw video frame to canvas
+                if (this.video.readyState === this.video.HAVE_ENOUGH_DATA) {
+                    this.ctx.drawImage(
+                        this.video,
+                        0, 0,
+                        this.canvas.width,
+                        this.canvas.height
+                    );
+                    
+                    this.frameCount++;
+                    
+                    // Call frame callback
+                    if (this.onFrame) {
+                        this.onFrame();
+                    }
+                }
+            } catch (error) {
+                console.error('Frame drawing error:', error);
             }
-        }, captureIntervalMs);
+            
+            // Continue loop
+            this.drawingLoop = requestAnimationFrame(draw);
+        };
+        
+        draw();
     }
     
     /**
-     * Capture and process a single frame
+     * Capture current frame as base64
      */
     captureFrame() {
-        if (!this.isStreaming || !this.videoElement.videoWidth) {
+        if (!this.isActive) {
             return null;
-        }
-        
-        // Draw video frame to canvas
-        this.ctx.drawImage(
-            this.videoElement,
-            0, 0,
-            this.canvasElement.width,
-            this.canvasElement.height
-        );
-        
-        // Get frame as base64
-        const frameData = this.canvasElement.toDataURL('image/jpeg', this.frameQuality);
-        
-        this.frameCount++;
-        
-        // Callback with frame data
-        if (this.onFrameCapture) {
-            this.onFrameCapture({
-                frame: frameData,
-                timestamp: new Date().toISOString(),
-                frameNumber: this.frameCount,
-                width: this.canvasElement.width,
-                height: this.canvasElement.height
-            });
-        }
-        
-        return frameData;
-    }
-    
-    /**
-     * Take a snapshot (higher quality)
-     */
-    takeSnapshot(quality = 0.95) {
-        if (!this.isStreaming) {
-            return null;
-        }
-        
-        // Create temporary canvas for high-quality capture
-        const snapshotCanvas = document.createElement('canvas');
-        snapshotCanvas.width = this.videoElement.videoWidth;
-        snapshotCanvas.height = this.videoElement.videoHeight;
-        
-        const snapshotCtx = snapshotCanvas.getContext('2d');
-        snapshotCtx.drawImage(this.videoElement, 0, 0);
-        
-        return snapshotCanvas.toDataURL('image/jpeg', quality);
-    }
-    
-    /**
-     * Draw face boxes on canvas
-     */
-    drawFaceBox(location, label, color = 'green') {
-        const { top, right, bottom, left } = location;
-        
-        // Draw rectangle
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 3;
-        this.ctx.strokeRect(left, top, right - left, bottom - top);
-        
-        // Draw label background
-        const labelHeight = 30;
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(left, top - labelHeight, right - left, labelHeight);
-        
-        // Draw label text
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '16px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(
-            label,
-            left + (right - left) / 2,
-            top - labelHeight / 2
-        );
-    }
-    
-    /**
-     * Draw overlay information
-     */
-    drawOverlay(info) {
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(10, 10, 250, Object.keys(info).length * 25 + 10);
-        
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '14px Arial';
-        this.ctx.textAlign = 'left';
-        
-        let y = 30;
-        for (const [key, value] of Object.entries(info)) {
-            this.ctx.fillText(`${key}: ${value}`, 20, y);
-            y += 25;
-        }
-    }
-    
-    /**
-     * Clear canvas overlays
-     */
-    clearOverlays() {
-        // Redraw video frame
-        this.ctx.drawImage(
-            this.videoElement,
-            0, 0,
-            this.canvasElement.width,
-            this.canvasElement.height
-        );
-    }
-    
-    /**
-     * Get camera capabilities
-     */
-    getCameraCapabilities() {
-        if (!this.stream) {
-            return null;
-        }
-        
-        const videoTrack = this.stream.getVideoTracks()[0];
-        const capabilities = videoTrack.getCapabilities();
-        const settings = videoTrack.getSettings();
-        
-        return {
-            capabilities: capabilities,
-            currentSettings: settings,
-            isActive: videoTrack.enabled,
-            label: videoTrack.label
-        };
-    }
-    
-    /**
-     * Adjust camera settings
-     */
-    async adjustSettings(constraints) {
-        if (!this.stream) {
-            return false;
         }
         
         try {
-            const videoTrack = this.stream.getVideoTracks()[0];
-            await videoTrack.applyConstraints(constraints);
-            return true;
+            return this.canvas.toDataURL('image/jpeg', this.frameQuality);
         } catch (error) {
-            console.error('❌ Failed to adjust camera settings:', error);
-            return false;
+            console.error('Frame capture error:', error);
+            return null;
         }
     }
     
     /**
-     * Switch camera (front/back)
+     * Switch to next available camera
      */
     async switchCamera() {
-        const currentFacingMode = this.stream.getVideoTracks()[0]
-            .getSettings().facingMode;
+        if (this.devices.length === 0) {
+            this.devices = await CameraHandler.getAvailableCameras();
+        }
         
-        const newFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        if (this.devices.length <= 1) {
+            console.log('Only one camera available');
+            return;
+        }
         
-        this.stopCamera();
+        this.currentDeviceIndex = (this.currentDeviceIndex + 1) % this.devices.length;
+        const nextDevice = this.devices[this.currentDeviceIndex];
         
-        return await this.startCamera({
-            video: { facingMode: newFacingMode }
-        });
+        this.stop();
+        await this.start(nextDevice.deviceId);
     }
     
     /**
@@ -325,43 +256,16 @@ class CameraHandler {
     }
     
     /**
-     * Get stream statistics
+     * Cleanup
      */
-    getStatistics() {
-        return {
-            isStreaming: this.isStreaming,
-            frameCount: this.frameCount,
-            processingFPS: this.processingFPS,
-            videoWidth: this.videoElement.videoWidth,
-            videoHeight: this.videoElement.videoHeight,
-            recognitionResults: this.recognitionResults.length
-        };
-    }
-    
-    /**
-     * Add recognition result for display
-     */
-    addRecognitionResult(result) {
-        this.recognitionResults.push({
-            ...result,
-            timestamp: Date.now()
-        });
-        
-        // Keep only last 10 results
-        if (this.recognitionResults.length > 10) {
-            this.recognitionResults.shift();
+    destroy() {
+        this.stop();
+        if (this.video && this.video.parentNode) {
+            this.video.parentNode.removeChild(this.video);
         }
-    }
-    
-    /**
-     * Clear recognition results
-     */
-    clearRecognitionResults() {
-        this.recognitionResults = [];
     }
 }
 
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = CameraHandler;
-}
+// Make available globally
+window.CameraHandler = CameraHandler;
+console.log('✅ CameraHandler class loaded and exposed globally');

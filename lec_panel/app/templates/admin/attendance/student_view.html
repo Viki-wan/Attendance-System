@@ -1,0 +1,129 @@
+{% extends "admin/base_admin.html" %}
+{% from "admin/attendance/_macros.html" import rate, status_badge %}
+
+{% block title %}{{ d.student.student_id }} attendance - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .at-list td, .at-list th { white-space: nowrap; vertical-align: middle; }
+    .at-listwrap { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1100px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <a href="{{ url_for('admin_attendance.students') }}" class="btn btn-sm btn-outline-secondary mb-2">
+                <i class="bi bi-arrow-left"></i> All students
+            </a>
+            <h1 class="h3 mb-0">
+                {{ d.student.name }}
+                {% if not d.student.is_active %}<span class="badge bg-secondary align-middle fs-6">inactive</span>{% endif %}
+            </h1>
+            <div class="text-muted">
+                {{ d.student.student_id }} &middot; {{ d.student.course }}{% if d.student.year %} &middot; Year {{ d.student.year }}{% endif %}
+                {% if d.student.email %}&middot; {{ d.student.email }}{% endif %}
+                <a href="{{ url_for('admin_students.view', student_id=d.student.student_id) }}" class="small ms-2">student profile</a>
+            </div>
+        </div>
+        <form method="get" class="d-flex flex-wrap align-items-center gap-2" id="studentRange">
+            <select name="range" id="rangeSelect" class="form-select form-select-sm w-auto" aria-label="Date range">
+                {% for key, label in ranges %}
+                <option value="{{ key }}" {% if range_key == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+                {% if range_key == 'custom' %}<option value="custom" selected>Custom dates</option>{% endif %}
+            </select>
+            <div class="input-group input-group-sm w-auto"><span class="input-group-text">From</span>
+                <input type="date" name="date_from" class="form-control" value="{{ date_from }}" onchange="this.form.submit()"></div>
+            <div class="input-group input-group-sm w-auto"><span class="input-group-text">To</span>
+                <input type="date" name="date_to" class="form-control" value="{{ date_to }}" onchange="this.form.submit()"></div>
+        </form>
+    </div>
+
+    <div class="d-flex justify-content-end mb-2">{% include 'admin/attendance/_export_menu.html' %}</div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2">
+            <div class="h4 mb-0">{{ rate(d.totals.rate, d.totals.low) }}</div><div class="text-muted small">Attendance rate</div></div></div></div>
+        <div class="col-6 col-md-3"><div class="card"><div class="card-body py-2">
+            <div class="h4 mb-0">{{ d.totals.records }}</div><div class="text-muted small">Completed sessions recorded</div></div></div></div>
+        <div class="col-12 col-md-6"><div class="card"><div class="card-body py-2">
+            <div class="d-flex flex-wrap gap-4">
+                <div><div class="h5 mb-0 text-success">{{ d.totals.Present }}</div><div class="text-muted small">Present</div></div>
+                <div><div class="h5 mb-0 text-warning">{{ d.totals.Late }}</div><div class="text-muted small">Late</div></div>
+                <div><div class="h5 mb-0 text-danger">{{ d.totals.Absent }}</div><div class="text-muted small">Absent</div></div>
+                <div><div class="h5 mb-0 text-info">{{ d.totals.Excused }}</div><div class="text-muted small">Excused</div></div>
+            </div></div></div></div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-collection me-1"></i> By class</div>
+                {% if d.per_class %}
+                <ul class="list-group list-group-flush">
+                    {% for c in d.per_class %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('admin_attendance.class_view', class_id=c.class_id) }}" class="text-decoration-none">{{ c.class_id }}</a>
+                        <span class="small">{{ c.attended }}/{{ c.records }} &middot; {{ rate(c.rate, c.low) }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}<div class="card-body text-muted">No records in this range.</div>{% endif %}
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header"><i class="bi bi-clock-history me-1"></i> Session history</div>
+                {% if d.history %}
+                <div class="at-listwrap">
+                    <table class="table table-hover table-sm mb-0 at-list">
+                        <thead><tr>
+                            <th class="ps-3">Date</th><th>Class</th><th>Status</th><th>Method</th><th class="pe-3"></th>
+                        </tr></thead>
+                        <tbody>
+                        {% for h in d.history %}
+                        <tr>
+                            <td class="ps-3">{{ h.date.strftime('%a %d %b %Y') if h.date else h.date_raw }} <span class="text-muted small">{{ h.start_time }}</span></td>
+                            <td>{{ h.class_id }}</td>
+                            <td>{{ status_badge(h.status, status_badges) }}
+                                {% if h.session_status == 'ongoing' %}<span class="text-muted small">live</span>{% endif %}
+                                {% if h.corrected %}<i class="bi bi-pencil-square text-primary" title="Corrected by an admin"></i>{% endif %}</td>
+                            <td class="text-muted small">{{ h.method }}{% if h.confidence is not none and h.status in ('Present', 'Late') %} &middot; {{ '%.0f'|format(h.confidence * 100) }}%{% endif %}</td>
+                            <td class="text-end pe-3"><a href="{{ url_for('admin_attendance.sheet', session_id=h.session_id) }}" class="btn btn-sm btn-outline-secondary">Sheet</a></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="text-muted small">{{ d.total_rows }} record{{ '' if d.total_rows == 1 else 's' }}{% if d.pages > 1 %} &middot; page {{ d.page }} of {{ d.pages }}{% endif %}</span>
+                    {% if d.pages > 1 %}
+                    <div class="btn-group btn-group-sm">
+                        {% if page_links.prev %}<a href="{{ page_links.prev }}" class="btn btn-outline-secondary"><i class="bi bi-chevron-left"></i> Previous</a>
+                        {% else %}<span class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i> Previous</span>{% endif %}
+                        {% if page_links.next %}<a href="{{ page_links.next }}" class="btn btn-outline-secondary">Next <i class="bi bi-chevron-right"></i></a>
+                        {% else %}<span class="btn btn-outline-secondary disabled">Next <i class="bi bi-chevron-right"></i></span>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}<div class="card-body text-muted">No attendance records in this range.</div>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var form = document.getElementById('studentRange');
+    document.getElementById('rangeSelect').addEventListener('change', function () {
+        form.elements['date_from'].value = '';
+        form.elements['date_to'].value = '';
+        form.submit();
+    });
+})();
+</script>
+{% endblock %}

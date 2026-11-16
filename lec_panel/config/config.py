@@ -17,13 +17,23 @@ class Config:
     APP_NAME = 'Face Recognition Attendance System'
     APP_VERSION = '1.0.0'
     
-    # Base directories
-    BASE_DIR = Path(__file__).resolve().parent.parent
-    UPLOAD_FOLDER = BASE_DIR / 'uploads'
+    # Base directories - FIXED: Now points to project root
+    # config.py is in lec_panel/config/ folder
+    # So we need to go up 2 levels to reach project root
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent  # Changed from parent.parent
+    
+    # Alternative explicit path (uncomment if above doesn't work)
+    # BASE_DIR = Path(r'C:\Users\HP\.vscode\attendance system')
+    
+    UPLOAD_FOLDER = BASE_DIR / 'lec_panel' / 'uploads'
     FACE_ENCODINGS_FOLDER = UPLOAD_FOLDER / 'face_encodings'
     STUDENT_PHOTOS_FOLDER = UPLOAD_FOLDER / 'student_photos'
     FACE_ONLY_FOLDER = UPLOAD_FOLDER / 'face_only'
     REPORTS_FOLDER = UPLOAD_FOLDER / 'reports'
+    
+    # Database - FIXED: Now uses proper path to project root
+    # Convert Path to string with forward slashes for SQLite URI
+    DB_PATH = BASE_DIR / 'attendance.db'
     
     # Database
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -128,7 +138,7 @@ class Config:
     # Logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
     LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    LOG_FILE = BASE_DIR / 'logs' / 'app.log'
+    LOG_FILE = BASE_DIR / 'lec_panel' / 'logs' / 'app.log'
     
     # Performance Monitoring
     SLOW_QUERY_THRESHOLD = 0.5  # seconds
@@ -181,7 +191,7 @@ class Config:
             Config.STUDENT_PHOTOS_FOLDER,
             Config.FACE_ONLY_FOLDER,
             Config.REPORTS_FOLDER,
-            Config.BASE_DIR / 'logs'
+            Config.BASE_DIR / 'lec_panel' / 'logs'
         ]:
             folder.mkdir(parents=True, exist_ok=True)
 
@@ -192,9 +202,9 @@ class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
     
-    # Database
+    # Database - FIXED: Use proper path with string conversion
     SQLALCHEMY_DATABASE_URI = os.environ.get('DEV_DATABASE_URL') or \
-        f'sqlite:///{Config.BASE_DIR}/attendance.db'
+        f'sqlite:///{str(Config.DB_PATH).replace(chr(92), "/")}'  # Convert backslashes to forward slashes
     SQLALCHEMY_ECHO = True
     
     # Security (relaxed for development)
@@ -258,7 +268,14 @@ class DevelopmentConfig(Config):
         print('='*60)
         
         # Database info
-        print(f'💾 Database: {app.config.get("SQLALCHEMY_DATABASE_URI")}')
+        db_uri = app.config.get("SQLALCHEMY_DATABASE_URI")
+        print(f'💾 Database: {db_uri}')
+        
+        # Show actual resolved path
+        if db_uri.startswith('sqlite:///'):
+            db_path = db_uri.replace('sqlite:///', '').replace('/', chr(92))
+            print(f'   Resolved to: {db_path}')
+            print(f'   Exists: {os.path.exists(db_path)}')
         
         # Redis status
         if app.config.get('ENABLE_CACHE'):
@@ -357,7 +374,7 @@ class ProductionConfig(Config):
     
     # Database
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        f'sqlite:///{Config.BASE_DIR}/attendance.db'
+        f'sqlite:///{str(Config.DB_PATH).replace(chr(92), "/")}'
     SQLALCHEMY_ECHO = False
     
     # Security (strict for production)

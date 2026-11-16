@@ -1,0 +1,275 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Admin Dashboard - Attendance System{% endblock %}
+
+{% block meta_description %}Campus-wide attendance system overview{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    .dashboard-header h1 {
+        margin: 0 0 10px 0;
+        font-size: 2rem;
+    }
+
+    .dashboard-header .subtitle {
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        height: 100%;
+    }
+
+    .stat-card .icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 15px;
+    }
+
+    .stat-card.primary .icon {
+        background: rgba(52, 152, 219, 0.1);
+        color: var(--secondary-color);
+    }
+
+    .stat-card.success .icon {
+        background: rgba(39, 174, 96, 0.1);
+        color: var(--success-color);
+    }
+
+    .stat-card.warning .icon {
+        background: rgba(243, 156, 18, 0.1);
+        color: var(--warning-color);
+    }
+
+    .stat-card.danger .icon {
+        background: rgba(231, 76, 60, 0.1);
+        color: var(--danger-color);
+    }
+
+    .stat-card .value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+
+    .stat-card .label {
+        color: var(--light-text);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .chart-container {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 25px;
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(52, 152, 219, 0.1);
+        color: var(--secondary-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 14px;
+    }
+
+    .activity-icon.instructor {
+        background: rgba(52, 152, 219, 0.1);
+        color: var(--secondary-color);
+    }
+
+    .activity-icon.admin {
+        background: rgba(155, 89, 182, 0.1);
+        color: #9b59b6;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--light-text);
+    }
+
+    .empty-state i {
+        font-size: 2.5rem;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+
+    @media (max-width: 768px) {
+        .stat-card .value {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container fade-in">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>
+            <i class="fas fa-tachometer-alt me-2"></i>
+            Welcome back, {{ current_user.username }}!
+        </h1>
+        <p class="subtitle">
+            <i class="fas fa-calendar-day me-2"></i>
+            {{ current_date.strftime('%A, %B %d, %Y') if current_date else 'Loading...' }}
+        </p>
+    </div>
+
+    <!-- Semester rollover notice (Phase 7c): only when something needs attention -->
+    {% if rollover and (rollover.due or rollover.blocked or rollover.reversed) %}
+    <div class="alert {% if rollover.blocked %}alert-danger{% else %}alert-warning{% endif %} d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><i class="fas fa-exclamation-triangle me-2"></i>{{ rollover.message }}</div>
+        <a class="btn btn-sm btn-dark" href="{{ url_for('admin_settings.rollover') }}">
+            {% if rollover.due %}Review and run{% else %}Open rollover page{% endif %}
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Yearly promotion notice (Phase 7d): only when something needs attention -->
+    {% if promotion and (promotion.due or promotion.blocked or promotion.reversed or promotion.needs_baseline) %}
+    <div class="alert {% if promotion.blocked %}alert-danger{% else %}alert-warning{% endif %} d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><i class="fas fa-user-graduate me-2"></i>{{ promotion.message }}</div>
+        <a class="btn btn-sm btn-dark" href="{{ url_for('admin_settings.promotion') }}">
+            {% if promotion.due %}Review and run{% elif promotion.needs_baseline %}Set up{% else %}Open promotion page{% endif %}
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Campus-wide Stats Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card primary card-hover">
+                <div class="icon">
+                    <i class="fas fa-user-graduate"></i>
+                </div>
+                <div class="value">{{ stats.total_students }}</div>
+                <div class="label">Students</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-people"></i> Registered campus-wide
+                </small>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card success card-hover">
+                <div class="icon">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </div>
+                <div class="value">{{ stats.total_lecturers }}</div>
+                <div class="label">Lecturers</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-person-badge"></i> Active on the platform
+                </small>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card warning card-hover">
+                <div class="icon">
+                    <i class="fas fa-journal-bookmark"></i>
+                </div>
+                <div class="value">{{ stats.total_courses }}</div>
+                <div class="label">Courses</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-book"></i> {{ stats.total_classes }} active classes
+                </small>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6">
+            <div class="stat-card danger card-hover">
+                <div class="icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div class="value">{{ stats.today_sessions }}</div>
+                <div class="label">Today's Sessions</div>
+                <small class="text-muted mt-2 d-block">
+                    <i class="bi bi-check2-circle"></i> {{ stats.today_completed }} completed
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="chart-container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="mb-0">
+                <i class="fas fa-history text-secondary me-2"></i>
+                Recent Activity
+            </h4>
+        </div>
+
+        {% if recent_activity %}
+            {% for log in recent_activity %}
+            <div class="activity-item">
+                <div class="activity-icon {{ 'admin' if log.user_type == 'admin' else 'instructor' }}">
+                    <i class="fas {{ 'fa-user-shield' if log.user_type == 'admin' else 'fa-chalkboard-teacher' }}"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <div>
+                        <strong>{{ log.user_id }}</strong>
+                        <span class="text-muted">({{ log.user_type }})</span>
+                        &mdash; {{ log.description or log.activity_type }}
+                    </div>
+                    <small class="text-muted">
+                        {{ log.timestamp.strftime('%d %b %Y, %I:%M %p') if log.timestamp else '' }}
+                    </small>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <h5>No activity yet</h5>
+                <p>Actions across the system will show up here.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

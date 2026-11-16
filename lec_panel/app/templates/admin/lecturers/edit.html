@@ -1,0 +1,60 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Edit {{ lecturer.instructor_name }} - Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 700px;">
+    <div class="mb-4">
+        <a href="{{ url_for('admin_lecturers.view', instructor_id=lecturer.instructor_id) }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to {{ lecturer.instructor_name }}
+        </a>
+        <h1 class="h3 mt-2"><i class="bi bi-pencil me-2"></i>Edit Lecturer</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="mb-3">
+                    <label class="form-label">Instructor ID</label>
+                    <input type="text" class="form-control" value="{{ lecturer.instructor_id }}" disabled>
+                    <div class="form-text">Instructor ID cannot be changed.</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                    <input type="text" name="instructor_name" class="form-control"
+                           value="{{ lecturer.instructor_name }}" required maxlength="200">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Phone <span class="text-danger">*</span></label>
+                    <input type="tel" name="phone" class="form-control"
+                           value="{{ lecturer.phone }}" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control"
+                           value="{{ lecturer.email or '' }}">
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Faculty</label>
+                    <input type="text" name="faculty" class="form-control"
+                           value="{{ lecturer.faculty or '' }}">
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Save Changes
+                    </button>
+                    <a href="{{ url_for('admin_lecturers.view', instructor_id=lecturer.instructor_id) }}"
+                       class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

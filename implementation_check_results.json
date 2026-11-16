@@ -1,0 +1,37 @@
+{
+  "files": {
+    "socket_io_events.py": {
+      "exists": false,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\app\\socket_io_events.py",
+      "size": 0
+    },
+    "face_recognition_service.py": {
+      "exists": false,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\app\\services\\face_recognition_service.py",
+      "size": 0
+    },
+    "camera_service.py": {
+      "exists": false,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\app\\services\\camera_service.py",
+      "size": 0
+    },
+    "face_processing.py": {
+      "exists": false,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\app\\tasks\\face_processing.py",
+      "size": 0
+    }
+  },
+  "socketio_handlers": [],
+  "celery_tasks": [],
+  "service_methods": {
+    "FaceRecognitionService": [],
+    "CameraService": []
+  },
+  "missing": [
+    "app/socket_io_events.py",
+    "app/services/face_recognition_service.py",
+    "app/services/camera_service.py",
+    "app/tasks/face_processing.py"
+  ],
+  "project_root": "C:\\Users\\HP\\.vscode\\attendance system"
+}

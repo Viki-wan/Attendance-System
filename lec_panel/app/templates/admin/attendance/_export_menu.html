@@ -1,0 +1,12 @@
+{# Export buttons (6c). Shown only when the route passes `export_links`
+    ({'csv': url, 'xlsx': url, 'pdf': url optional}). Plain links, no JavaScript. #}
+ {% if export_links is defined and export_links %}
+ <div class="btn-group btn-group-sm" role="group" aria-label="Export this view">
+     <span class="btn btn-light border disabled" style="opacity: 1;"><i class="bi bi-download"></i> Export</span>
+     <a class="btn btn-outline-secondary" href="{{ export_links.csv }}" title="Plain table, opens in Excel"><i class="bi bi-file-earmark-text"></i> CSV</a>
+     <a class="btn btn-outline-secondary" href="{{ export_links.xlsx }}" title="Excel workbook with summary"><i class="bi bi-file-earmark-spreadsheet"></i> Excel</a>
+     {% if export_links.get('pdf') %}
+     <a class="btn btn-outline-secondary" href="{{ export_links.pdf }}" title="Printable PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+     {% endif %}
+ </div>
+ {% endif %}

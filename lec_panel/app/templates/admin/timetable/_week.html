@@ -1,0 +1,75 @@
+{# Weekly calendar for one cohort / lecturer / class. Needs week, entries, unscheduled. #}
+{% if week.empty %}
+<div class="card"><div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-calendar-x" style="font-size: 2.5rem; opacity: 0.5;"></i>
+    <p class="mt-3 mb-3">No timetable entries for this selection.</p>
+    <a href="{{ url_for('admin_timetable.create', class_id=class_id) if class_id else url_for('admin_timetable.create') }}"
+       class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> New Entry</a>
+</div></div>
+{% else %}
+<div class="card">
+    <div class="card-body p-0">
+        <div class="tt-scroll">
+            <div class="tt-cal" style="--tt-days: {{ week.days|length }}; --tt-height: {{ week.height_px }}px; --tt-hour: {{ week.hour_px }}px;">
+                <div class="tt-head">
+                    <div></div>
+                    {% for d in week.days %}<div class="tt-dayhead">{{ d.name }}</div>{% endfor %}
+                </div>
+                <div class="tt-body">
+                    <div class="tt-times">
+                        {% for h in week.hours %}<div>{{ '%02d:00' % h }}</div>{% endfor %}
+                    </div>
+                    {% for d in week.days %}
+                    <div class="tt-col">
+                        {% for it in d.blocks %}
+                        {% set e = it.entry %}
+                        <a href="{{ url_for('admin_timetable.edit', entry_id=e.id) }}"
+                           class="tt-event {% if it.clashes %}tt-clash{% endif %} {% if it.dim %}tt-dim{% endif %}"
+                           style="top: {{ it.top }}%; height: {{ it.height }}%; left: {{ it.left }}%; width: {{ it.width }}%;"
+                           title="{{ e.class_id }} - {{ e.class_name }}
+{{ e.day_name }} {{ e.start_time }}-{{ e.end_time }}
+{% for l in e.lecturers %}{{ l.instructor_name }}{% if not loop.last %}, {% endif %}{% else %}No lecturer assigned{% endfor %}{% for m in it.clashes %}
+! {{ m }}{% endfor %}{% if it.dim %}
+(expired or inactive){% endif %}">
+                            {% if it.compact %}
+                            <div class="tt-ev-line"><strong>{{ e.class_id }}</strong> <span class="tt-ev-time">{{ e.start_time }}&ndash;{{ e.end_time }}</span></div>
+                            {% else %}
+                            <div class="tt-ev-line"><strong>{{ e.class_id }}</strong></div>
+                            <div class="tt-ev-line tt-ev-time">{{ e.start_time }}&ndash;{{ e.end_time }}</div>
+                            <div class="tt-ev-line">{{ e.class_name }}</div>
+                            <div class="tt-ev-line tt-ev-lec">{% for l in e.lecturers %}{{ l.instructor_name }}{% if not loop.last %}, {% endif %}{% else %}No lecturer{% endfor %}</div>
+                            {% endif %}
+                            {% if it.clashes %}<i class="bi bi-exclamation-triangle-fill tt-ev-warn"></i>{% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer small text-muted d-flex flex-wrap gap-3">
+        <span><span class="tt-swatch" style="background:#e7f1ff; border:1px solid #0d6efd;"></span>Slot</span>
+        <span><span class="tt-swatch" style="background:#f8d7da; border:1px solid #dc3545;"></span>Clash (hover for details)</span>
+        <span><span class="tt-swatch" style="background:#e7f1ff; border:1px dashed #0d6efd; opacity:.6;"></span>Expired or inactive</span>
+        <span class="ms-auto">Click a block to edit it</span>
+    </div>
+</div>
+{% endif %}
+
+{% if unscheduled %}
+<div class="card mt-3">
+    <div class="card-body">
+        <h6 class="mb-2"><i class="bi bi-calendar-plus me-1"></i>Classes with no slot yet
+            <span class="badge bg-warning text-dark">{{ unscheduled|length }}</span></h6>
+        <div class="d-flex flex-wrap gap-2">
+            {% for c in unscheduled %}
+            <a href="{{ url_for('admin_timetable.create', class_id=c.class_id) }}"
+               class="btn btn-sm btn-outline-primary" title="{{ c.class_name }}">
+                <i class="bi bi-plus-lg"></i> {{ c.class_id }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}

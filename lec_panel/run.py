@@ -3,10 +3,11 @@ Flask Attendance System - Application Entry Point
 Run with: python run.py
 
 Fixed for Windows + WSL2 port reservation issues
-Uses port 8080 by default to avoid Hyper-V reserved ports
+Uses port 10000 by default (8080 is often reserved by Hyper-V/WinNAT)
 """
 
 import os
+import socket
 import sys
 from app import create_app, socketio
 
@@ -19,15 +20,40 @@ app = create_app(config_name)
 def get_port():
     """Get port from environment or use safe default"""
     try:
-        port = int(os.environ.get('PORT', 8080))
-        # Validate port range
+        port = int(os.environ.get('PORT', 10000))
         if not (1024 <= port <= 65535):
-            print(f"Warning: Invalid port {port}, using 8080")
-            return 8080
+            print(f"Warning: Invalid port {port}, using 10000")
+            return 10000
         return port
     except ValueError:
-        print("Warning: Invalid PORT value, using 8080")
-        return 8080
+        print("Warning: Invalid PORT value, using 10000")
+        return 10000
+
+
+def port_is_bindable(host, port):
+    """Return True if we can bind TCP on host:port."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((host, port))
+        return True
+    except OSError:
+        return False
+
+
+def resolve_port(host, preferred):
+    """Use preferred port, otherwise first fallback that Windows will allow."""
+    candidates = [preferred, 10000, 3000, 8888, 5001]
+    seen = set()
+    for port in candidates:
+        if port in seen:
+            continue
+        seen.add(port)
+        if port_is_bindable(host, port):
+            if port != preferred:
+                print(f"Port {preferred} is blocked; using {port} instead")
+            return port
+    return preferred
 
 def get_host():
     """Get host from environment or use safe default"""
@@ -36,8 +62,8 @@ def get_host():
     return os.environ.get('HOST', '127.0.0.1')
 
 if __name__ == '__main__':
-    port = get_port()
     host = get_host()
+    port = resolve_port(host, get_port())
     
     print("=" * 60)
     print("Flask Attendance System")
@@ -51,13 +77,14 @@ if __name__ == '__main__':
     
     try:
         # Run with SocketIO support
+        # Keep this simple while we debug: no reloader, no debug spam, no raw packet logs
         socketio.run(
             app,
             host=host,
             port=port,
-            debug=app.config['DEBUG'],
-            use_reloader=app.config['DEBUG'],
-            log_output=True,
+            debug=False,
+            use_reloader=False,
+            log_output=False,
             allow_unsafe_werkzeug=True  # For development only
         )
     except OSError as e:

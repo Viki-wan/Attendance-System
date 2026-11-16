@@ -7,19 +7,28 @@ from celery import shared_task
 from app import db, socketio
 from app.models import Student, Attendance, ClassSession
 from app.services.face_recognition_service import FaceRecognitionService
+from app.services.settings_admin_service import get_setting
 from app.services.camera_service import CameraService
 from datetime import datetime
 import numpy as np
 from typing import Dict, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 camera_service = CameraService()
+
+# In-memory cache for face encodings per class
+# This avoids reloading encodings on every frame
+_face_encoding_cache = {}  # class_id -> (known_faces, student_ids, timestamp)
+_CACHE_TIMEOUT = 3600  # Cache for 1 hour
 
 
 @shared_task(bind=True, max_retries=3)
 def process_frame_task(self, session_id: int, frame_data: str, class_id: str):
     """
-    Process a single frame for face recognition
+    Process a single frame for face recognition with bounding box coordinates
     
     Args:
         session_id: Attendance session ID
@@ -27,12 +36,12 @@ def process_frame_task(self, session_id: int, frame_data: str, class_id: str):
         class_id: Class ID for filtering students
         
     Returns:
-        Dictionary with recognition results
+        Dictionary with recognition results including bounding boxes
     """
     try:
-        # Load settings
-        from app.models import Setting
-        settings = Setting.get_all_settings()
+        # Settings: the validated sensitivity from Admin > Settings (default 50),
+        # read on every call so a change applies to the next frame
+        settings = {'face_recognition_sensitivity': get_setting('face_recognition_sensitivity')}
         
         # Initialize services
         face_service = FaceRecognitionService(settings)
@@ -50,19 +59,96 @@ def process_frame_task(self, session_id: int, frame_data: str, class_id: str):
                 'details': quality
             }
         
-        # Load known faces for this class
-        known_faces, student_ids = face_service.load_known_faces(class_id)
+        # Load known faces for this class (use cache if available)
+        logger.info(f"📄 Processing frame for session {session_id}, class {class_id}")
+        
+        cache_key = class_id or 'all'
+        cached_data = _face_encoding_cache.get(cache_key)
+        
+        # Check if cache is valid (not expired)
+        if cached_data:
+            cached_faces, cached_ids, cache_time = cached_data
+            if (datetime.now() - cache_time).total_seconds() < _CACHE_TIMEOUT:
+                known_faces, student_ids = cached_faces, cached_ids
+                logger.info(f"✅ Using cached encodings for class {class_id} ({len(known_faces)} faces)")
+            else:
+                logger.info(f"🔄 Cache expired for class {class_id}, reloading encodings...")
+                del _face_encoding_cache[cache_key]
+                known_faces, student_ids = face_service.load_known_faces(class_id)
+                _face_encoding_cache[cache_key] = (known_faces, student_ids, datetime.now())
+        else:
+            logger.info(f"🔄 No cache found for class {class_id}, loading encodings...")
+            known_faces, student_ids = face_service.load_known_faces(class_id)
+            if known_faces:
+                _face_encoding_cache[cache_key] = (known_faces, student_ids, datetime.now())
         
         if not known_faces:
-            return {'error': 'no_registered_faces'}
+            error_msg = f'No face encodings found for class {class_id}. Please ensure students have registered their faces.'
+            logger.error(f"❌ {error_msg}")
+            
+            socketio.emit('recognition_error', {
+                'session_id': session_id,
+                'error': 'no_registered_faces',
+                'message': error_msg
+            }, room=f'session_{session_id}')
+            
+            return {'error': 'no_registered_faces', 'message': error_msg}
         
-        # Process frame
+        # Get frame dimensions for coordinate scaling
+        frame_height, frame_width = frame.shape[:2]
+        
+        # Process frame with bounding boxes
         results = face_service.process_frame(
             frame,
             known_faces,
             student_ids,
             float(settings.get('face_recognition_sensitivity', 50)) / 100
         )
+        
+        # Enhance results with normalized coordinates for client-side drawing
+        for result in results:
+            if 'location' in result:
+                # face_recognition returns (top, right, bottom, left)
+                top, right, bottom, left = result['location']
+                
+                # Normalize coordinates to 0-1 range for canvas scaling
+                result['bbox'] = {
+                    'x': left / frame_width,
+                    'y': top / frame_height,
+                    'width': (right - left) / frame_width,
+                    'height': (bottom - top) / frame_height
+                }
+                
+                # Also provide pixel coordinates
+                result['bbox_pixels'] = {
+                    'x': left,
+                    'y': top,
+                    'width': right - left,
+                    'height': bottom - top
+                }
+        
+        # Emit face detection overlay data to frontend
+        # Only include results with valid bounding boxes
+        faces_with_bbox = [
+            {
+                'bbox': r.get('bbox'),
+                'bbox_pixels': r.get('bbox_pixels'),
+                'recognized': r.get('recognized', False),
+                'name': r.get('name', 'Unknown'),
+                'student_id': r.get('student_id'),
+                'confidence': r.get('confidence', 0.0)
+            }
+            for r in results
+            if r.get('bbox') is not None and 'location' in r
+        ]
+        
+        socketio.emit('face_detection_overlay', {
+            'session_id': session_id,
+            'faces': faces_with_bbox,
+            'frame_width': frame_width,
+            'frame_height': frame_height,
+            'timestamp': datetime.now().isoformat()
+        }, room=f'session_{session_id}')
         
         # Update camera stats
         faces_detected = len(results)
@@ -77,14 +163,25 @@ def process_frame_task(self, session_id: int, frame_data: str, class_id: str):
         # Process recognition results
         for result in results:
             if result.get('recognized'):
-                # Emit real-time update
+                student_id = result['student_id']
+                confidence = result.get('confidence', 0.0)
+                
+                # Emit real-time update with bounding box
                 socketio.emit('student_recognized', {
                     'session_id': session_id,
-                    'student_id': result['student_id'],
+                    'student_id': student_id,
                     'name': result['name'],
-                    'confidence': result['confidence'],
-                    'timestamp': result['timestamp']
+                    'confidence': confidence,
+                    'timestamp': result['timestamp'],
+                    'bbox': result.get('bbox'),
+                    'bbox_pixels': result.get('bbox_pixels')
                 }, room=f'session_{session_id}')
+                
+                # Automatically mark attendance
+                mark_attendance_task.apply_async(
+                    args=[session_id, student_id, confidence, 'face_recognition'],
+                    countdown=0
+                )
         
         return {
             'success': True,
@@ -94,7 +191,8 @@ def process_frame_task(self, session_id: int, frame_data: str, class_id: str):
         }
         
     except Exception as e:
-        print(f"❌ Error processing frame: {e}")
+        error_msg = f"❌ Error processing frame: {e}"
+        logger.error(error_msg, exc_info=True)
         self.retry(exc=e, countdown=2)
 
 
@@ -261,9 +359,9 @@ def batch_process_frames_task(
         List of processing results
     """
     try:
-        # Load settings
-        from app.models import Setting
-        settings = Setting.get_all_settings()
+        # Settings: the validated sensitivity from Admin > Settings (default 50),
+        # read on every call so a change applies to the next frame
+        settings = {'face_recognition_sensitivity': get_setting('face_recognition_sensitivity')}
         
         # Initialize services
         face_service = FaceRecognitionService(settings)

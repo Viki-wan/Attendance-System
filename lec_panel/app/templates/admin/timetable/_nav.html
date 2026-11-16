@@ -1,0 +1,19 @@
+{# Sub-navigation shared by the timetable pages. Set `active_tab` before including. #}
+<ul class="nav nav-pills mb-4 flex-wrap gap-1">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'timetable' %}active{% endif %}"
+           href="{{ url_for('admin_timetable.index') }}"><i class="bi bi-calendar-week"></i> Timetable</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'conflicts' %}active{% endif %}"
+           href="{{ url_for('admin_timetable.conflicts') }}"><i class="bi bi-exclamation-triangle"></i> Conflicts</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'holidays' %}active{% endif %}"
+           href="{{ url_for('admin_timetable.holidays') }}"><i class="bi bi-calendar-x"></i> Holidays</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'generate' %}active{% endif %}"
+           href="{{ url_for('admin_timetable.generate') }}"><i class="bi bi-lightning-charge"></i> Generate sessions</a>
+    </li>
+</ul>

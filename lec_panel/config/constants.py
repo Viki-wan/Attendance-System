@@ -28,6 +28,8 @@ class ActivityType:
     FACE_ENCODING_UPDATED = 'face_encoding_updated'
     REPORT_GENERATED = 'report_generated'
     SETTINGS_CHANGED = 'settings_changed'
+    SEMESTER_ROLLOVER = 'semester_rollover'
+    YEARLY_PROMOTION = 'yearly_promotion'
     PASSWORD_CHANGED = 'password_changed'
     PASSWORD_RESET = 'password_reset'
     PROFILE_UPDATED = 'profile_updated'
@@ -233,6 +235,7 @@ class SettingCategory:
     DASHBOARD = 'dashboard'
     REPORTS = 'reports'
     SECURITY = 'security'
+    CALENDAR = 'calendar'
     
     ALL = [
         GENERAL,
@@ -244,7 +247,8 @@ class SettingCategory:
         METRICS,
         DASHBOARD,
         REPORTS,
-        SECURITY
+        SECURITY,
+        CALENDAR
     ]
 
 
@@ -444,6 +448,8 @@ ACTIVITY_TYPES = {
     'FACE_ENCODING_UPDATED': ActivityType.FACE_ENCODING_UPDATED,
     'REPORT_GENERATED': ActivityType.REPORT_GENERATED,
     'SETTINGS_CHANGED': ActivityType.SETTINGS_CHANGED,
+    'SEMESTER_ROLLOVER': ActivityType.SEMESTER_ROLLOVER,
+    'YEARLY_PROMOTION': ActivityType.YEARLY_PROMOTION,
     'PASSWORD_CHANGED': ActivityType.PASSWORD_CHANGED,
     'PASSWORD_RESET': ActivityType.PASSWORD_RESET,
     'PROFILE_UPDATED': ActivityType.PROFILE_UPDATED,

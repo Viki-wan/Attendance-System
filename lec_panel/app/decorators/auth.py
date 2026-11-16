@@ -5,7 +5,7 @@ Provides role-based access control and ownership validation
 from functools import wraps
 from flask import redirect, url_for, flash, abort, request, current_app
 from flask_login import current_user
-from app.models.user import Instructor
+from app.models.user import Instructor, Admin
 
 
 def login_required(f):
@@ -335,7 +335,7 @@ def rate_limit(max_requests=100, window=3600):
 def admin_required(f):
     """
     Decorator for admin-only routes.
-    Placeholder for future admin functionality.
+    Verifies the logged-in user is an Admin instance.
     
     Usage:
         @admin_required
@@ -346,11 +346,14 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
             flash('Please log in to access this page.', 'warning')
-            return redirect(url_for('auth.login'))
+            return redirect(url_for('auth.login', next=request.url))
         
-        # Check if user is admin (will be implemented when admin model is created)
-        # For now, deny all access
-        abort(403, description="Admin access required")
+        # Check if user is an Admin instance
+        if not isinstance(current_user._get_current_object(), Admin):
+            current_app.logger.warning(
+                f"Non-admin access attempt to admin-only route by {current_user.get_id()}"
+            )
+            abort(403, description="Admin access required")
         
         return f(*args, **kwargs)
     return decorated_function

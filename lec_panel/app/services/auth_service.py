@@ -73,6 +73,55 @@ class AuthService:
         return True, "Login successful", instructor, is_first_time
     
     @staticmethod
+    def login_admin(username, password, remember=False):
+        """
+        Authenticate an admin and create a session.
+        Separate from instructor login() since Admin has no first-time-setup
+        or is_active concept today.
+
+        Args:
+            username (str): Admin username
+            password (str): Plain text password
+            remember (bool): Whether to remember the user
+
+        Returns:
+            tuple: (success: bool, message: str, admin: Admin or None)
+        """
+        from app.models.user import Admin
+
+        if not username or not password:
+            return False, "Invalid credentials", None
+
+        admin = Admin.get_by_username(username.strip())
+
+        if not admin:
+            current_app.logger.warning(f"Admin login attempt with unknown username: {username}")
+            return False, "Invalid credentials", None
+
+        if not admin.check_password(password):
+            current_app.logger.warning(f"Failed admin login attempt for: {username}")
+            AuthService._log_activity(
+                str(admin.id),
+                ACTIVITY_TYPES.get('LOGIN_FAILED', 'login_failed'),
+                f"Failed admin login attempt: {username}",
+                user_type=USER_TYPES.get('ADMIN', 'admin')
+            )
+            return False, "Invalid credentials", None
+
+        login_user(admin, remember=remember)
+
+        AuthService._log_activity(
+            str(admin.id),
+            ACTIVITY_TYPES.get('LOGIN', 'login'),
+            f"Successful admin login: {username}",
+            user_type=USER_TYPES.get('ADMIN', 'admin')
+        )
+
+        current_app.logger.info(f"Successful admin login: {username}")
+
+        return True, "Login successful", admin
+
+    @staticmethod
     def logout():
         """
         Logout the current user and clear session.
@@ -561,7 +610,7 @@ class AuthService:
         return has_letter and has_number
     
     @staticmethod
-    def _log_activity(user_id, activity_type, description):
+    def _log_activity(user_id, activity_type, description, user_type=None):
         """
         Log user activity to database.
         
@@ -569,13 +618,15 @@ class AuthService:
             user_id (str): User ID
             activity_type (str): Activity type constant
             description (str): Activity description
+            user_type (str, optional): Defaults to 'instructor' to preserve
+                existing call sites; pass USER_TYPES['ADMIN'] for admin activity.
         """
         try:
             from app.models.activity_log import ActivityLog
             
             log_entry = ActivityLog(
                 user_id=user_id,
-                user_type=USER_TYPES.get('INSTRUCTOR', 'instructor'),
+                user_type=user_type or USER_TYPES.get('INSTRUCTOR', 'instructor'),
                 activity_type=activity_type,
                 description=description,
                 timestamp=datetime.utcnow()

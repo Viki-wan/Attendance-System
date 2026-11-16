@@ -67,25 +67,29 @@ class Class(db.Model):
     @property
     def students(self):
         """
-        Get all students in this class
-        Based on course, year, and semester
+        Get all students in this class.
+
+        A class's students are the active students of its course in its
+        cohort year. The semester is deliberately NOT part of the match:
+        the whole campus shares one calendar, so a student's
+        current_semester carries no information a class needs, and
+        requiring it to equal the class semester made students silently
+        disappear from sessions and reports.
         """
         from app.models.student import Student
         return Student.query.filter_by(
             course=self.course_code,
             year_of_study=self.year,
-            current_semester=self.semester,
             is_active=True
         ).all()
     
     @property
     def student_count(self):
-        """Get total number of students in this class"""
+        """Get total number of students in this class (same rule as .students)"""
         from app.models.student import Student
         return Student.query.filter_by(
             course=self.course_code,
             year_of_study=self.year,
-            current_semester=self.semester,
             is_active=True
         ).count()
     

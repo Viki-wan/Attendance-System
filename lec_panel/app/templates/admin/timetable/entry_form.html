@@ -1,0 +1,268 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ 'Edit' if entry else 'New' }} Timetable Entry - Admin{% endblock %}
+
+{% block content %}
+{% set fd = form_data or {} %}
+{% set posted = 'start_time' in fd %}
+{% if entry %}
+    {% set d_from = entry.effective_from.isoformat() if entry.effective_from else '' %}
+    {% set d_to = entry.effective_to.isoformat() if entry.effective_to else '' %}
+{% else %}
+    {% set d_from = defaults.effective_from %}
+    {% set d_to = defaults.effective_to %}
+{% endif %}
+{% set v_class = entry.class_id if entry else (fd.get('class_id') or '') %}
+{% set v_day = (fd.get('day_of_week') or ((entry.day_of_week if entry else 1)|string))|string %}
+{% set v_start = fd.get('start_time') or (entry.start_time if entry else '') %}
+{% set v_end = fd.get('end_time') or (entry.end_time if entry else '') %}
+{% set v_from = fd.get('effective_from') if posted else d_from %}
+{% set v_to = fd.get('effective_to') if posted else d_to %}
+
+<div class="container-fluid mt-4" style="max-width: 900px; margin: 0 auto;">
+    <div class="mb-4">
+        <a href="{{ url_for('admin_timetable.index') }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to timetable
+        </a>
+    </div>
+
+    <h1 class="h3 mb-4">
+        <i class="bi bi-calendar-plus me-2"></i>{{ 'Edit timetable entry' if entry else 'New timetable entry' }}
+    </h1>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="post" id="entry-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Class</label>
+                        {% if entry %}
+                        <div class="form-control-plaintext">
+                            <a href="{{ url_for('admin_courses.class_view', class_id=entry.class_id) }}"
+                               class="text-decoration-none"><code>{{ entry.class_id }}</code></a>
+                            &middot; {{ entry.class_name }}
+                            <span class="text-muted">(Y{{ entry.year }} &middot; S{{ entry.semester }})</span>
+                            <div class="text-muted small">
+                                Lecturers:
+                                {% for l in entry.lecturers %}{{ l.instructor_name }}{% if not loop.last %}, {% endif %}{% else %}none assigned{% endfor %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <select name="class_id" class="form-select" required>
+                            <option value="" disabled {% if not v_class %}selected{% endif %}>Select a class&hellip;</option>
+                            {% for c in classes %}
+                            <option value="{{ c.class_id }}" data-semester="{{ c.semester }}"
+                                    {% if v_class == c.class_id %}selected{% endif %}>
+                                {{ c.class_id }} &mdash; {{ c.class_name }} (Y{{ c.year }} S{{ c.semester }}){% if c.lecturers %} &middot; {{ c.lecturers|join(', ') }}{% else %} &middot; no lecturer{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Clashes are checked against the class, its lecturers, and its cohort (same course and year).</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Day</label>
+                        <select name="day_of_week" class="form-select" required>
+                            {% for d, name in days %}
+                            <option value="{{ d }}" {% if v_day == d|string %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Start time</label>
+                        <input type="time" name="start_time" class="form-control" value="{{ v_start }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">End time</label>
+                        <input type="time" name="end_time" class="form-control" value="{{ v_end }}" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Effective from</label>
+                        <input type="date" name="effective_from" class="form-control" value="{{ v_from }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Effective to</label>
+                        <input type="date" name="effective_to" class="form-control" value="{{ v_to or '' }}">
+                        <div class="form-text">Leave empty for no end date.</div>
+                    </div>
+                </div>
+
+                <!-- Live clash check -->
+                <div id="conflict-box" class="alert alert-danger mt-4 d-none">
+                    <strong><i class="bi bi-exclamation-triangle me-1"></i>This slot would clash:</strong>
+                    <ul class="mb-0 mt-2" id="conflict-list"></ul>
+                </div>
+                <div id="conflict-ok" class="text-success small mt-3 d-none">
+                    <i class="bi bi-check-circle me-1"></i>No clashes found.
+                </div>
+
+                <hr class="my-4">
+
+                {% if entry %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="propagate" value="1" id="propagate" checked>
+                    <label class="form-check-label" for="propagate">
+                        Apply to sessions already generated
+                        <span class="text-muted">&mdash; upcoming sessions of the old slot that nobody has started are removed and recreated from the new slot.
+                        Sessions that were held, started, or cancelled are never touched.</span>
+                    </label>
+                </div>
+                {% else %}
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="generate_now" value="1" id="generate_now"
+                           {% if not posted or fd.get('generate_now') == '1' %}checked{% endif %}>
+                    <label class="form-check-label" for="generate_now">
+                        Generate sessions now
+                        <span class="text-muted">&mdash; from today (or the effective start) to the effective end date.</span>
+                    </label>
+                </div>
+                {% endif %}
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> {{ 'Save changes' if entry else 'Add entry' }}
+                    </button>
+                    <a href="{{ url_for('admin_timetable.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if entry %}
+    <!-- Status and removal -->
+    <div class="card border-danger-subtle">
+        <div class="card-body">
+            <h5 class="mb-1">Status and removal</h5>
+            <p class="text-muted small mb-3">
+                Currently <strong>{{ 'active' if entry.is_active else 'inactive' }}</strong>.
+                Deactivating keeps the entry but stops it producing sessions; deleting removes it for good.
+            </p>
+
+            <div class="d-flex gap-2 flex-wrap align-items-start">
+                {% if entry.is_active %}
+                <form method="post" action="{{ url_for('admin_timetable.deactivate', entry_id=entry.id) }}"
+                      onsubmit="return confirm('Deactivate this entry?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="propagate" value="1" id="deact_propagate" checked>
+                        <label class="form-check-label small" for="deact_propagate">Also remove its upcoming untouched sessions</label>
+                    </div>
+                    <button type="submit" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-slash-circle"></i> Deactivate
+                    </button>
+                </form>
+                {% else %}
+                <form method="post" action="{{ url_for('admin_timetable.activate', entry_id=entry.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-check-circle"></i> Activate
+                    </button>
+                </form>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('admin_timetable.delete', entry_id=entry.id) }}"
+                      onsubmit="return confirm('Permanently delete this timetable entry? This cannot be undone.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="propagate" value="1" id="del_propagate" checked>
+                        <label class="form-check-label small" for="del_propagate">Also remove its upcoming untouched sessions</label>
+                    </div>
+                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var form = document.getElementById('entry-form');
+    var box = document.getElementById('conflict-box');
+    var list = document.getElementById('conflict-list');
+    var ok = document.getElementById('conflict-ok');
+    var checkUrl = {{ url_for('admin_timetable.check')|tojson }};
+    var fixedClass = {{ (entry.class_id if entry else '')|tojson }};
+    var excludeId = {{ (entry.id if entry else '')|tojson }};
+    var windows = {{ windows|tojson }};
+    var timer = null;
+    var datesTouched = {{ 'true' if (entry or ('start_time' in (form_data or {}))) else 'false' }};
+
+    function val(name) {
+        return form.elements[name] ? form.elements[name].value : '';
+    }
+
+    function runCheck() {
+        var classId = fixedClass || val('class_id');
+        if (!classId || !val('start_time') || !val('end_time') || !val('effective_from')) {
+            box.classList.add('d-none'); ok.classList.add('d-none');
+            return;
+        }
+        var params = new URLSearchParams({
+            class_id: classId, day_of_week: val('day_of_week'),
+            start_time: val('start_time'), end_time: val('end_time'),
+            effective_from: val('effective_from'), effective_to: val('effective_to')
+        });
+        if (excludeId !== '') { params.set('exclude_id', excludeId); }
+
+        fetch(checkUrl + '?' + params.toString(), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                list.innerHTML = '';
+                if (data.conflicts && data.conflicts.length) {
+                    data.conflicts.forEach(function (c) {
+                        var li = document.createElement('li');
+                        li.textContent = c.message;
+                        list.appendChild(li);
+                    });
+                    box.classList.remove('d-none'); ok.classList.add('d-none');
+                } else {
+                    box.classList.add('d-none'); ok.classList.remove('d-none');
+                }
+            })
+            .catch(function () { box.classList.add('d-none'); ok.classList.add('d-none'); });
+    }
+
+    function schedule() {
+        clearTimeout(timer);
+        timer = setTimeout(runCheck, 350);
+    }
+
+    ['class_id', 'day_of_week', 'start_time', 'end_time', 'effective_from', 'effective_to'].forEach(function (name) {
+        var el = form.elements[name];
+        if (el) { el.addEventListener('change', schedule); el.addEventListener('input', schedule); }
+    });
+
+    ['effective_from', 'effective_to'].forEach(function (name) {
+        var el = form.elements[name];
+        if (el) { el.addEventListener('change', function () { datesTouched = true; }); }
+    });
+
+    // Picking a class pre-fills its semester's usual date range (until the dates are edited)
+    var classSelect = form.elements['class_id'];
+    function applyWindow() {
+        if (datesTouched || !classSelect || classSelect.tagName !== 'SELECT') { return; }
+        var opt = classSelect.options[classSelect.selectedIndex];
+        var sem = opt ? opt.getAttribute('data-semester') : null;
+        if (sem && windows[sem]) {
+            form.elements['effective_from'].value = windows[sem][0];
+            form.elements['effective_to'].value = windows[sem][1];
+        }
+    }
+    if (classSelect && classSelect.tagName === 'SELECT') {
+        classSelect.addEventListener('change', applyWindow);
+        applyWindow();   // a class pre-selected via ?class_id=
+    }
+
+    schedule();
+})();
+</script>
+{% endblock %}

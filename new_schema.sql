@@ -66,18 +66,17 @@ CREATE TABLE students (
     is_active INTEGER DEFAULT 1
 );
 
--- Classes Table
 CREATE TABLE classes (
     class_id TEXT PRIMARY KEY,
     course_code TEXT NOT NULL,
     class_name TEXT NOT NULL,
     year INTEGER DEFAULT 1,
-    semester TEXT DEFAULT '1.1',
+    semester INTEGER DEFAULT '1',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active INTEGER DEFAULT 1,
+    is_active INTEGER DEFAULT 1, year_level INTEGER DEFAULT 1,
     FOREIGN KEY (course_code) REFERENCES courses(course_code)
-);
+)
 
 -- Class Sessions Table
 CREATE TABLE class_sessions (
@@ -162,6 +161,23 @@ CREATE TABLE student_courses (
     FOREIGN KEY (course_code) REFERENCES courses(course_code),
     UNIQUE(student_id, course_code, semester, year),
     CONSTRAINT check_enrollment_status CHECK (status IN ('Active', 'Dropped', 'Completed', 'Failed'))
+);
+
+CREATE TABLE IF NOT EXISTS class_enrollments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id TEXT NOT NULL,
+    class_id TEXT NOT NULL,
+    semester INTEGER NOT NULL,  -- 1 or 2
+    academic_year TEXT NOT NULL,  -- "2024/2025"
+    enrollment_date DATE DEFAULT CURRENT_DATE,
+    status TEXT DEFAULT 'active',  -- active, dropped, completed, failed
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(class_id) ON DELETE CASCADE,
+    UNIQUE(student_id, class_id, academic_year),
+    CONSTRAINT check_enrollment_status CHECK (status IN ('active', 'dropped', 'completed', 'failed')),
+    CONSTRAINT check_semester CHECK (semester IN (1, 2))
 );
 
 -- Lecturer Preferences Table

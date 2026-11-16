@@ -13,7 +13,7 @@ os.makedirs(REPORT_DIR, exist_ok=True)
 # Database
 DATABASE_PATH = "attendance.db"
 
-ENCODING_DIR = "student_encodings"
+ENCODING_DIR = "face_encodings"
 
 # Face Recognition Settings
 FACE_RECOGNITION_TOLERANCE = 0.45  # Lower values are more strict

@@ -9,6 +9,7 @@ from app.services.report_service import ReportService
 from app.utils.pdf_generator import PDFGenerator
 from app.utils.excel_generator import ExcelGenerator
 from app.decorators.auth import active_account_required, owns_session, owns_class
+from app.utils.academic_calendar import get_current_semester as campus_semester
 from datetime import datetime, timedelta
 from collections import defaultdict
 import io
@@ -25,30 +26,20 @@ excel_generator = ExcelGenerator()
 
 def get_current_semester():
     """
-    Determine current semester based on date
-    Semester 1: September - December
-    Semester 2: January - April
-    Holiday: May - August (defaults to Semester 2 for filtering)
-    
+    Current campus semester, from the academic calendar the admin maintains
+    (app/utils/academic_calendar.py). Kept as a string for the existing code below.
+
     Returns:
         str: Current semester ('1' or '2')
     """
-    now = datetime.now()
-    month = now.month
-    
-    if month in [9, 10, 11, 12]:
-        return '1'  # Semester 1
-    elif month in [1, 2, 3, 4]:
-        return '2'  # Semester 2
-    else:
-        # May-August is holiday period, default to last active semester
-        return '2'
+    return str(campus_semester())
 
 
 def organize_classes_by_semester(classes):
     """
     Organize classes by semester (all years in same semester grouped together)
-    Semester format: year.semester (e.g., 3.1 = Year 3, Semester 1)
+    Semester is now an integer (1 or 2) stored directly in the classes table.
+    Year information is stored separately in the year field.
     
     Args:
         classes: List of Class objects
@@ -62,21 +53,18 @@ def organize_classes_by_semester(classes):
     organized = defaultdict(lambda: defaultdict(list))
     
     for cls in classes:
-        # Extract semester from format: year.semester (e.g., '3.1' -> semester '1')
-        if cls.semester and '.' in cls.semester:
-            parts = cls.semester.split('.')
-            semester = parts[1] if len(parts) > 1 else current_semester
+        # Semester is now an integer (1 or 2)
+        if cls.semester is not None:
+            # Convert to string for consistency with rest of code
+            semester = str(cls.semester)
             # Only include valid semesters (1 or 2)
             if semester not in ['1', '2']:
                 continue
-        elif cls.semester:
-            # If no dot, assume it's just the semester number
-            semester = cls.semester
-            if semester not in ['1', '2']:
-                continue
         else:
+            # If semester is None, use current semester
             semester = current_semester
         
+        # Get year level from the year field
         year = cls.year or 1
         organized[semester][year].append(cls)
     
@@ -92,7 +80,6 @@ def organize_classes_by_semester(classes):
                 )
     
     return sorted_structure, current_semester
-
 
 def serialize_class(cls):
     """
@@ -186,14 +173,8 @@ def filter_classes():
     # Filter classes
     filtered_classes = []
     for cls in all_classes:
-        # Extract semester from format: year.semester (e.g., '3.1' -> semester '1')
-        if cls.semester and '.' in cls.semester:
-            parts = cls.semester.split('.')
-            cls_semester = parts[1] if len(parts) > 1 else None
-        elif cls.semester:
-            cls_semester = cls.semester
-        else:
-            cls_semester = None
+        # Semester is now an integer (1 or 2)
+        cls_semester = str(cls.semester) if cls.semester is not None else None
         
         # Only include valid semesters
         if cls_semester not in ['1', '2']:
@@ -220,7 +201,6 @@ def filter_classes():
         'classes': filtered_classes,
         'count': len(filtered_classes)
     })
-
 
 # ========== Session Reports ==========
 

@@ -6,7 +6,7 @@ from datetime import datetime
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
-from config.constants import USER_TYPES
+from config.constants import USER_TYPES, UserType
 
 
 class Instructor(UserMixin, db.Model):
@@ -522,3 +522,106 @@ class Instructor(UserMixin, db.Model):
             data['updated_at'] = self.updated_at.isoformat() if self.updated_at else None
         
         return data
+
+
+class Admin(UserMixin, db.Model):
+    """
+    Admin model for authentication and campus-wide access.
+    Implements Flask-Login's UserMixin for session management.
+
+    Maps to the existing 'admin' table (id, username, password) already
+    present in attendance.db. Kept deliberately minimal for Phase 0 —
+    admin profile fields can be added later without breaking auth.
+    """
+    __tablename__ = 'admin'
+
+    # Primary key
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+
+    # Authentication
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+
+    def __repr__(self):
+        return f'<Admin {self.id}: {self.username}>'
+
+    # Flask-Login required methods
+    def get_id(self):
+        """
+        Return a prefixed identifier so the shared user_loader can tell
+        Admin and Instructor sessions apart (their primary keys are both
+        just plain strings/ints otherwise).
+        """
+        return f'admin:{self.id}'
+
+    @property
+    def is_authenticated(self):
+        """Always return True for authenticated users"""
+        return True
+
+    @property
+    def is_anonymous(self):
+        """Admins are never anonymous"""
+        return False
+
+    @property
+    def is_active(self):
+        """
+        The 'admin' table has no active/inactive column today.
+        Every row is treated as active until that's introduced.
+        """
+        return True
+
+    # Password methods
+    def set_password(self, password):
+        """
+        Hash and set the admin's password.
+
+        Args:
+            password (str): Plain text password
+        """
+        self.password = generate_password_hash(password, method='pbkdf2:sha256')
+
+    def check_password(self, password):
+        """
+        Verify the provided password against the stored hash.
+
+        Args:
+            password (str): Plain text password to verify
+
+        Returns:
+            bool: True if password matches, False otherwise
+        """
+        return check_password_hash(self.password, password)
+
+    def get_user_type(self):
+        """Return user type for activity logging"""
+        return USER_TYPES.get('ADMIN', UserType.ADMIN)
+
+    # Query methods
+    @staticmethod
+    def get_by_username(username):
+        """
+        Fetch admin by username.
+
+        Args:
+            username (str): Admin username
+
+        Returns:
+            Admin: Admin object or None
+        """
+        return Admin.query.filter_by(username=username).first()
+
+    # Serialization
+    def to_dict(self):
+        """
+        Convert admin to dictionary (never includes the password hash).
+
+        Returns:
+            dict: Admin data
+        """
+        return {
+            'id': self.id,
+            'username': self.username,
+            'user_type': self.get_user_type()
+        }

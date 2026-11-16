@@ -4,8 +4,8 @@ Exports all models for easy importing
 """
 
 # Import models in dependency order to avoid circular imports
-from app.models.user import Instructor
-from app.models.course import Course, StudentCourse
+from app.models.user import Instructor, Admin
+from app.models.course import Course, StudentCourse, InstructorCourse
 from app.models.class_model import Class, ClassInstructor
 from app.models.student import Student
 from app.models.session import ClassSession
@@ -21,8 +21,10 @@ from app.models.system_metric import SystemMetric
 # Export all models
 __all__ = [
     'Instructor',
+    'Admin',
     'Course',
     'StudentCourse',
+    'InstructorCourse',
     'Class',
     'ClassInstructor',
     'Student',

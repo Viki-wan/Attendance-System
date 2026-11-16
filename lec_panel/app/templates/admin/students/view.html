@@ -1,0 +1,221 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ student.full_name }} - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1100px; margin: 0 auto;">
+    <div class="mb-4">
+        <a href="{{ url_for('admin_students.index') }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to students
+        </a>
+    </div>
+
+    <!-- Profile Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                <div class="d-flex gap-3 align-items-start">
+                    {% if student.has_face_encoding() and (student.face_only_path or student.image_path) %}
+                    <button type="button" class="btn p-0 border-0 position-relative flex-shrink-0"
+                            data-bs-toggle="modal" data-bs-target="#photoModal" title="Click to enlarge">
+                        <img src="{{ url_for('admin_students.photo', student_id=student.student_id) }}"
+                             alt="Photo of {{ student.full_name }}" width="140" height="140"
+                             class="rounded border" style="object-fit: cover;"
+                             onerror="this.closest('button').style.display='none';">
+                        <span class="position-absolute bottom-0 end-0 m-1 badge bg-dark bg-opacity-75">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </span>
+                    </button>
+                    {% else %}
+                    <div class="rounded border bg-light d-flex flex-column align-items-center justify-content-center text-muted flex-shrink-0"
+                         style="width: 140px; height: 140px;">
+                        <i class="bi bi-person-bounding-box" style="font-size: 2.5rem;"></i>
+                        <small>No photo</small>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h1 class="h3 mb-1">{{ student.full_name }}</h1>
+                        <p class="text-muted mb-2"><code>{{ student.student_id }}</code></p>
+                        {% if student.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                        {% if student.has_face_encoding() %}
+                            <span class="badge bg-success">Face registered</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">No face registered</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ url_for('admin_students.edit', student_id=student.student_id) }}"
+                       class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    <a href="{{ url_for('admin_students.register_face', student_id=student.student_id) }}"
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-camera"></i> {{ 'Re-register Face' if student.has_face_encoding() else 'Register Face' }}
+                    </a>
+                    {% if student.is_active %}
+                    <form method="post" action="{{ url_for('admin_students.deactivate', student_id=student.student_id) }}"
+                          onsubmit="return confirm('Deactivate {{ student.full_name|e }}? They will no longer be recognized in attendance sessions.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-slash-circle"></i> Deactivate
+                        </button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="{{ url_for('admin_students.activate', student_id=student.student_id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-check-circle"></i> Activate
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="text-muted small">Email</div>
+                    <div>{{ student.email or '—' }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Phone</div>
+                    <div>{{ student.phone or '—' }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Course</div>
+                    <div>{{ student.course or '—' }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Year of Study</div>
+                    <div>{{ student.year_of_study or '—' }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Current Semester</div>
+                    <div>{{ student.current_semester or '—' }}</div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Registered</div>
+                    <div>{{ student.created_at.strftime('%d %b %Y') if student.created_at else '—' }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Course Enrollments -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="mb-3"><i class="bi bi-journal-bookmark me-2"></i>Course Enrollments</h5>
+
+            {% if enrollments %}
+            {# Active first (status sorts Active < Completed < Dropped < Failed), then newest year/semester #}
+            {% set badge_class = {'Active': 'bg-success', 'Completed': 'bg-primary', 'Dropped': 'bg-secondary', 'Failed': 'bg-danger'} %}
+            <ul class="list-group list-group-flush mb-3">
+                {% for e in enrollments|sort(attribute='semester', reverse=true)|sort(attribute='year', reverse=true)|sort(attribute='status') %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0
+                           {% if e.status != 'Active' %}text-muted{% endif %}">
+                    <div>
+                        <strong>{{ e.course_code }}</strong> — {{ e.course.course_name }}
+                        <div class="small">
+                            {{ e.semester or '—' }}, {{ e.year or '—' }}
+                            <span class="badge {{ badge_class.get(e.status, 'bg-secondary') }} ms-1">{{ e.status }}</span>
+                            {% if e.enrollment_date %}
+                            <span class="ms-1">· Enrolled {{ e.enrollment_date.strftime('%d %b %Y') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if e.status == 'Active' %}
+                    <form method="post"
+                          action="{{ url_for('admin_students.drop_course', student_id=student.student_id, course_code=e.course_code) }}"
+                          onsubmit="return confirm('Drop {{ e.course_code|e }} for this student?');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="enrollment_id" value="{{ e.id }}">
+                        <input type="hidden" name="semester" value="{{ e.semester or '' }}">
+                        <input type="hidden" name="year" value="{{ e.year or '' }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Drop course">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </form>
+                    {% elif e.status == 'Dropped' %}
+                    <form method="post"
+                          action="{{ url_for('admin_students.enroll_course', student_id=student.student_id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="course_code" value="{{ e.course_code }}">
+                        <input type="hidden" name="enrollment_id" value="{{ e.id }}">
+                        <input type="hidden" name="semester" value="{{ e.semester or '' }}">
+                        <input type="hidden" name="year" value="{{ e.year or '' }}">
+                        <button type="submit" class="btn btn-sm btn-outline-success" title="Re-enroll">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted">Not enrolled in any courses yet.</p>
+            {% endif %}
+
+            <form method="post" action="{{ url_for('admin_students.enroll_course', student_id=student.student_id) }}"
+                  class="border-top pt-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row g-2">
+                    <div class="col-md-5">
+                        <select name="course_code" class="form-select form-select-sm" required>
+                            <option value="" disabled selected>Select a course…</option>
+                            {% for c in available_courses %}
+                            <option value="{{ c.course_code }}">{{ c.course_code }} — {{ c.course_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="semester" class="form-select form-select-sm" required>
+                            {% for sem in [1, 2] %}
+                            <option value="{{ sem }}" {% if sem == campus_semester %}selected{% endif %}>Semester {{ sem }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" name="year" class="form-control form-control-sm"
+                               value="{{ student.year_of_study or '' }}" placeholder="Year" required>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-sm btn-primary w-100">
+                            <i class="bi bi-plus-lg"></i> Enroll
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% if student.has_face_encoding() and (student.face_only_path or student.image_path) %}
+    <!-- Photo preview modal -->
+    <div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="photoModalLabel">{{ student.full_name }} — <code>{{ student.student_id }}</code></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="{{ url_for('admin_students.photo', student_id=student.student_id, full=1) }}"
+                         alt="Full photo of {{ student.full_name }}" class="img-fluid rounded">
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ url_for('admin_students.register_face', student_id=student.student_id) }}"
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-camera"></i> Re-register Face
+                    </a>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Students - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1400px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-people me-2"></i>Students</h1>
+            <p class="text-muted mb-0">{{ pagination.total }} total</p>
+        </div>
+        <a href="{{ url_for('admin_students.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> Register Student
+        </a>
+    </div>
+
+    <!-- Search / Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="q" class="form-control" value="{{ search }}"
+                           placeholder="Name, ID, email, or phone">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="" {% if not status %}selected{% endif %}>All</option>
+                        <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Face registered</label>
+                    <select name="has_face" class="form-select">
+                        <option value="" {% if not has_face %}selected{% endif %}>All</option>
+                        <option value="yes" {% if has_face == 'yes' %}selected{% endif %}>Registered</option>
+                        <option value="no" {% if has_face == 'no' %}selected{% endif %}>Not registered</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Student Table -->
+    <div class="card">
+        <div class="card-body p-0">
+            {% if students %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student</th>
+                            <th>ID</th>
+                            <th>Course</th>
+                            <th>Year / Sem</th>
+                            <th>Face</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    {% if student.has_face_encoding() and (student.face_only_path or student.image_path) %}
+                                    <img src="{{ url_for('admin_students.photo', student_id=student.student_id) }}"
+                                         alt="" width="36" height="36" loading="lazy"
+                                         class="rounded-circle" style="object-fit: cover;"
+                                         onerror="this.style.visibility='hidden';">
+                                    {% else %}
+                                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center text-muted"
+                                         style="width: 36px; height: 36px;"><i class="bi bi-person"></i></div>
+                                    {% endif %}
+                                    <div>
+                                        <div>{{ student.full_name }}</div>
+                                        <div class="text-muted small">{{ student.email or '—' }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td><code>{{ student.student_id }}</code></td>
+                            <td>{{ student.course or '—' }}</td>
+                            <td>Y{{ student.year_of_study or '—' }} · {{ student.current_semester or '—' }}</td>
+                            <td>
+                                {% if student.has_face_encoding() %}
+                                    <span class="badge bg-success">Registered</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Missing</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if student.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <a href="{{ url_for('admin_students.view', student_id=student.student_id) }}"
+                                   class="btn btn-sm btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ url_for('admin_students.edit', student_id=student.student_id) }}"
+                                   class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-person-x" style="font-size: 2.5rem; opacity: 0.5;"></i>
+                <p class="mt-3 mb-0">No students match your filters.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin_students.index', page=pagination.prev_num, q=search, status=status, has_face=has_face) }}">Previous</a>
+            </li>
+            {% for p in pagination.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin_students.index', page=p, q=search, status=status, has_face=has_face) }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                <a class="page-link" href="{{ url_for('admin_students.index', page=pagination.next_num, q=search, status=status, has_face=has_face) }}">Next</a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

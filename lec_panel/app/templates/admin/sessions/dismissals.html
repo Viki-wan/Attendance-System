@@ -1,0 +1,106 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Lecturer dismissals - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ds-list td { vertical-align: middle; }
+    @media (max-width: 991.98px) { .ds-listwrap { overflow-x: auto; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1400px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 class="h3 mb-0"><i class="bi bi-calendar-check me-2"></i>Sessions</h1>
+    </div>
+
+    {% set active_tab = 'dismissals' %}
+    {% include 'admin/sessions/_nav.html' %}
+
+    <form method="get" class="mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <select name="status" class="form-select form-select-sm w-auto" aria-label="Status" onchange="this.form.submit()">
+                <option value="">All statuses</option>
+                {% for st in dismissal_statuses %}
+                <option value="{{ st }}" {% if status == st %}selected{% endif %}>{{ st|capitalize }}</option>
+                {% endfor %}
+            </select>
+            <select name="instructor" class="form-select form-select-sm w-auto" style="max-width: 240px;" aria-label="Lecturer" onchange="this.form.submit()">
+                <option value="">All lecturers</option>
+                {% for i in instructors %}
+                <option value="{{ i.instructor_id }}" {% if instructor == i.instructor_id %}selected{% endif %}>{{ i.instructor_name }}</option>
+                {% endfor %}
+            </select>
+            {% if status or instructor %}<a href="{{ url_for('admin_sessions.dismissals') }}" class="btn btn-sm btn-link">Clear</a>{% endif %}
+        </div>
+    </form>
+
+    {% if without_record %}
+    <div class="alert alert-info py-2">
+        <i class="bi bi-info-circle me-1"></i>
+        {{ without_record }} dismissed or cancelled session{{ '' if without_record == 1 else 's' }} have no recorded reason (older data).
+        <a href="{{ url_for('admin_sessions.index', range='all', status='dismissed') }}">Dismissed</a> &middot;
+        <a href="{{ url_for('admin_sessions.index', range='all', status='cancelled') }}">Cancelled</a>
+    </div>
+    {% endif %}
+
+    {% if rows %}
+    <div class="card">
+        <div class="ds-listwrap">
+            <table class="table table-hover table-sm align-middle mb-0 ds-list">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Dismissed</th>
+                        <th>Lecturer</th>
+                        <th>Session</th>
+                        <th>Reason</th>
+                        <th>Outcome</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in rows %}
+                    <tr>
+                        <td class="ps-3 text-nowrap">{{ d.dismissal_time }}</td>
+                        <td class="text-nowrap">{{ d.instructor_name or d.instructor_id }}</td>
+                        <td class="text-nowrap">
+                            {{ d.class_id or '—' }}
+                            <span class="text-muted small">{{ d.date.strftime('%d %b %Y') if d.date else '' }} {{ d.start_time }}</span>
+                        </td>
+                        <td>{{ d.reason }}{% if d.notes %}<div class="small text-muted">{{ d.notes }}</div>{% endif %}</td>
+                        <td class="text-nowrap">
+                            <span class="badge bg-warning text-dark">{{ d.status }}</span>
+                            {% if d.rescheduled_to %}<div class="small text-muted">to {{ d.rescheduled_to.strftime('%d %b %Y') }}{% if d.rescheduled_time %} {{ d.rescheduled_time }}{% endif %}</div>{% endif %}
+                        </td>
+                        <td class="text-end pe-3">
+                            {% if d.session_id %}
+                            <a href="{{ url_for('admin_sessions.view', session_id=d.session_id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i> View</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small">
+                {{ result.total }} record{{ '' if result.total == 1 else 's' }}
+                {% if result.pages > 1 %}&middot; page {{ result.page }} of {{ result.pages }}{% endif %}
+            </span>
+            {% if result.pages > 1 %}
+            <div class="btn-group btn-group-sm">
+                {% if page_links.prev %}<a href="{{ page_links.prev }}" class="btn btn-outline-secondary">Previous</a>{% else %}<span class="btn btn-outline-secondary disabled">Previous</span>{% endif %}
+                {% if page_links.next %}<a href="{{ page_links.next }}" class="btn btn-outline-secondary">Next</a>{% else %}<span class="btn btn-outline-secondary disabled">Next</span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card"><div class="card-body text-center text-muted py-5">
+        <i class="bi bi-person-check fs-1 d-block mb-2"></i>
+        No lecturer dismissals have been recorded.
+    </div></div>
+    {% endif %}
+</div>
+{% endblock %}

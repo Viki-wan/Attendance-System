@@ -1,0 +1,36 @@
+﻿C:\Users\HP\.vscode\attendance system\lec_panel\app\models\activity_log.py:41: activity_type: Type of activity (login, logout, create_session, etc.)
+C:\Users\HP\.vscode\attendance system\lec_panel\app\models\activity_log.py:131: CREATE_SESSION = 'create_session'
+C:\Users\HP\.vscode\attendance system\lec_panel\app\models\session.py:11: class ClassSession(db.Model):
+C:\Users\HP\.vscode\attendance system\lec_panel\app\models\timetable.py:318: session = ClassSession(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\api\v1\sessions.py:183: def create_session():
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\api\v1\sessions.py:243: session = ClassSession(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\dashboard.py:525: new_session = ClassSession(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\dismissals.py:63: new_session = ClassSession(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\sessions.py:197: def bulk_create_sessions():
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\sessions.py:209: 'lecturer/bulk_create_sessions.html',
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\sessions.py:222: return redirect(url_for('lecturer_sessions.bulk_create_sessions'))
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\sessions.py:230: return redirect(url_for('lecturer_sessions.bulk_create_sessions'))
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\sessions.py:237: created_count, errors = session_service.create_sessions_from_timetable(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\routes\lecturer\timetable.py:261: sessions_created, conflicts = SchedulingService.create_sessions_from_timetable(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\scheduling_service.py:19: def create_sessions_from_timetable(class_id, start_date, end_date, instructor_id):
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\scheduling_service.py:73: session = ClassSession(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\scheduling_service.py:200: def auto_schedule_today(instructor_id):
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\scheduling_service.py:235: session = ClassSession(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\session_service.py:316: def create_session(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\session_service.py:347: session = ClassSession(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\session_service.py:375: def create_sessions_from_timetable(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\session_service.py:465: session, error = self.create_session(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\services\session_service.py:693: new_session, error = self.create_session(
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\auth\activity.html:141: <h4>{{ activities.items|selectattr('activity_type', 'equalto', 'create_session')|list|length }}</h4>
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\bulk_create_sessions.html:28: <form method="POST" action="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" id="bulkCreateForm">
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\create_session.html:20: <form method="POST" action="{{ url_for('lecturer_sessions.create_session') }}" id="createSessionForm">
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\create_session.html:150: <li>You can bulk create sessions from <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}">timetable</a></li>
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\sessions.html:21: <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-primary">
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\sessions.html:291: <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-primary">
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\todays_session.html:216: <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-outline-primary">
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\todays_session.html:230: <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-outline-primary">
+C:\Users\HP\.vscode\attendance system\lec_panel\app\templates\lecturer\upcoming_sessions.html:123: <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-outline-primary">
+C:\Users\HP\.vscode\attendance system\lec_panel\app\utils\excel_generator.py:65: self._create_session_overview_sheet(wb, report_data)
+C:\Users\HP\.vscode\attendance system\lec_panel\app\utils\excel_generator.py:84: self._create_sessions_sheet(wb, report_data)
+C:\Users\HP\.vscode\attendance system\lec_panel\app\utils\excel_generator.py:125: def _create_session_overview_sheet(self, wb, data):
+C:\Users\HP\.vscode\attendance system\lec_panel\app\utils\excel_generator.py:362: def _create_sessions_sheet(self, wb, data):

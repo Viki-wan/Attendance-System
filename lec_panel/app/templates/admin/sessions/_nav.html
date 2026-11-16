@@ -1,0 +1,11 @@
+{# Sub-navigation shared by the session pages. Set `active_tab` before including. #}
+<ul class="nav nav-pills mb-4 flex-wrap gap-1">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'sessions' %}active{% endif %}"
+           href="{{ url_for('admin_sessions.index') }}"><i class="bi bi-calendar-check"></i> Sessions</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'dismissals' %}active{% endif %}"
+           href="{{ url_for('admin_sessions.dismissals') }}"><i class="bi bi-person-x"></i> Lecturer dismissals</a>
+    </li>
+</ul>

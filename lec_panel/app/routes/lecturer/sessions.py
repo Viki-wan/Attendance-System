@@ -116,154 +116,6 @@ def upcoming_sessions():
         sorted_dates=sorted_dates,
         days_ahead=days_ahead
     )
-
-@sessions_bp.route('/debug/upcoming')
-@login_required
-@active_account_required
-def debug_upcoming():
-    """Debug route to check upcoming sessions"""
-    from datetime import datetime, timedelta
-    from sqlalchemy import text
-    
-    today = datetime.now().date()
-    end_date = today + timedelta(days=7)
-    current_semester = SessionService.get_current_semester()
-    
-    # Test 1: Raw query WITHOUT semester filter
-    raw_all = db.session.execute(
-        text("""
-            SELECT 
-                s.session_id, 
-                s.class_id, 
-                s.date, 
-                s.start_time, 
-                s.status,
-                c.semester,
-                c.class_name
-            FROM class_sessions s
-            JOIN classes c ON s.class_id = c.class_id
-            JOIN class_instructors ci ON c.class_id = ci.class_id
-            WHERE ci.instructor_id = :instructor_id
-            AND s.date >= :today
-            AND s.date <= :end_date
-            ORDER BY s.date, s.start_time
-        """),
-        {
-            'instructor_id': current_user.instructor_id,
-            'today': today.isoformat(),
-            'end_date': end_date.isoformat()
-        }
-    ).fetchall()
-    
-    # Test 2: Raw query WITH semester filter
-    raw_semester = db.session.execute(
-        text("""
-            SELECT 
-                s.session_id, 
-                s.class_id, 
-                s.date, 
-                s.start_time, 
-                s.status,
-                c.semester,
-                c.class_name
-            FROM class_sessions s
-            JOIN classes c ON s.class_id = c.class_id
-            JOIN class_instructors ci ON c.class_id = ci.class_id
-            WHERE ci.instructor_id = :instructor_id
-            AND s.date >= :today
-            AND s.date <= :end_date
-            AND c.semester = :semester
-            ORDER BY s.date, s.start_time
-        """),
-        {
-            'instructor_id': current_user.instructor_id,
-            'today': today.isoformat(),
-            'end_date': end_date.isoformat(),
-            'semester': current_semester
-        }
-    ).fetchall()
-    
-    # Test 3: Check all sessions for instructor (no date filter)
-    all_instructor_sessions = db.session.execute(
-        text("""
-            SELECT 
-                s.session_id, 
-                s.date, 
-                s.status,
-                c.semester,
-                c.class_name
-            FROM class_sessions s
-            JOIN classes c ON s.class_id = c.class_id
-            JOIN class_instructors ci ON c.class_id = ci.class_id
-            WHERE ci.instructor_id = :instructor_id
-            ORDER BY s.date DESC
-            LIMIT 20
-        """),
-        {'instructor_id': current_user.instructor_id}
-    ).fetchall()
-    
-    # Test 4: Get sessions through service
-    sessions = session_service.get_upcoming_sessions(
-        instructor_id=current_user.instructor_id,
-        days_ahead=7
-    )
-    
-    debug_info = {
-        'current_user_id': current_user.instructor_id,
-        'current_semester': current_semester,
-        'current_month': datetime.now().month,
-        'is_in_semester': SessionService.is_in_semester(),
-        'today': today.isoformat(),
-        'end_date': end_date.isoformat(),
-        'counts': {
-            'raw_all_sessions': len(raw_all),
-            'raw_semester_filtered': len(raw_semester),
-            'all_instructor_sessions': len(all_instructor_sessions),
-            'service_sessions': len(sessions)
-        },
-        'raw_all_sessions': [
-            {
-                'id': r[0],
-                'class': r[1],
-                'date': str(r[2]),
-                'time': str(r[3]),
-                'status': r[4],
-                'semester': r[5],
-                'class_name': r[6]
-            } for r in raw_all
-        ],
-        'raw_semester_sessions': [
-            {
-                'id': r[0],
-                'class': r[1],
-                'date': str(r[2]),
-                'time': str(r[3]),
-                'status': r[4],
-                'semester': r[5],
-                'class_name': r[6]
-            } for r in raw_semester
-        ],
-        'all_instructor_sessions_sample': [
-            {
-                'id': r[0],
-                'date': str(r[1]),
-                'status': r[2],
-                'semester': r[3],
-                'class_name': r[4]
-            } for r in all_instructor_sessions
-        ],
-        'service_sessions': [
-            {
-                'id': s.session_id,
-                'class': s.class_id,
-                'date': str(s.date),
-                'status': s.status,
-                'semester': s.class_.semester if hasattr(s, 'class_') and s.class_ else 'N/A'
-            } for s in sessions
-        ]
-    }
-    
-    return jsonify(debug_info)
     
 @sessions_bp.route('/today')
 @login_required
@@ -278,9 +130,25 @@ def todays_sessions():
             session.session_id
         )
     
+    # Calculate counts for summary cards
+    scheduled_count = sum(1 for s in sessions if s.status == 'scheduled')
+    ongoing_count = sum(1 for s in sessions if s.status == 'ongoing')
+    completed_count = sum(1 for s in sessions if s.status == 'completed')
+    
+    # Get current date info
+    today = datetime.now()
+    current_date = today.strftime('%B %d, %Y')  # "November 10, 2025"
+    current_day = today.strftime('%A')  # "Monday"
+    
     return render_template(
         'lecturer/todays_session.html',
-        sessions=sessions
+        sessions=sessions,
+        scheduled_count=scheduled_count,
+        ongoing_count=ongoing_count,
+        completed_count=completed_count,
+        ongoing_sessions=ongoing_count > 0,  # For auto-refresh script
+        current_date=current_date,
+        current_day=current_day
     )
 
 
@@ -298,13 +166,10 @@ def view_session(session_id):
         return redirect(url_for('lecturer_sessions.list_sessions'))
     
     # Get statistics
-    stats = session_service.calculate_session_statistics(session_id)
+    statistics = session_service.calculate_session_statistics(session_id)
     
     # Get expected students
     expected_students = session_service.get_expected_students(session_id)
-    
-    # Get eligibility status
-    eligibility = session_service.get_session_eligibility_status(session_id)
     
     # Get dismissal info if dismissed
     dismissal = None
@@ -317,9 +182,8 @@ def view_session(session_id):
     return render_template(
         'lecturer/session_detail.html',
         session=session,
-        stats=stats,
+        statistics=statistics,  # Changed from stats to statistics
         expected_students=expected_students,
-        eligibility=eligibility,
         dismissal=dismissal
     )
 

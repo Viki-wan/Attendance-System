@@ -1,0 +1,99 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Edit {{ student.full_name }} - Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 700px;">
+    <div class="mb-4">
+        <a href="{{ url_for('admin_students.view', student_id=student.student_id) }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to {{ student.full_name }}
+        </a>
+        <h1 class="h3 mt-2"><i class="bi bi-pencil me-2"></i>Edit Student</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="mb-3">
+                    <label class="form-label">Student ID</label>
+                    <input type="text" class="form-control" value="{{ student.student_id }}" disabled>
+                    <div class="form-text">Student ID cannot be changed.</div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">First Name <span class="text-danger">*</span></label>
+                        <input type="text" name="fname" class="form-control"
+                               value="{{ student.fname }}" required maxlength="100">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" name="lname" class="form-control"
+                               value="{{ student.lname }}" required maxlength="100">
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control"
+                               value="{{ student.email or '' }}" maxlength="120">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" name="phone" class="form-control"
+                               value="{{ student.phone or '' }}" maxlength="15">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Course</label>
+                    <select name="course" class="form-select">
+                        <option value="" {% if not student.course %}selected{% endif %}>— None —</option>
+                        {% set ns = namespace(found=false) %}
+                        {% for c in available_courses %}
+                        {% if c.course_code == student.course %}{% set ns.found = true %}{% endif %}
+                        <option value="{{ c.course_code }}"
+                                {% if c.course_code == student.course %}selected{% endif %}>
+                            {{ c.course_code }} — {{ c.course_name }}
+                        </option>
+                        {% endfor %}
+                        {% if student.course and not ns.found %}
+                        <option value="{{ student.course }}" selected>{{ student.course }} (inactive)</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Year of Study</label>
+                        <input type="number" name="year_of_study" class="form-control"
+                               min="1" max="8" value="{{ student.year_of_study or 1 }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Current Semester</label>
+                        <input type="text" class="form-control" value="{{ student.current_semester or '—' }}" disabled>
+                        <div class="form-text">Campus-wide; not edited per student.</div>
+                    </div>
+                </div>
+
+                <p class="text-muted small">
+                    To change the face photo, use
+                    <a href="{{ url_for('admin_students.register_face', student_id=student.student_id) }}">Re-register Face</a>.
+                    Changing the course here does not enroll or drop any course enrollments.
+                </p>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Save Changes
+                    </button>
+                    <a href="{{ url_for('admin_students.view', student_id=student.student_id) }}"
+                       class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

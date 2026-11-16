@@ -1,0 +1,144 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Timetable Conflicts - Admin{% endblock %}
+
+{% block content %}
+{% set lecturer_issues = audit.issues|selectattr('kind', 'equalto', 'lecturer')|list %}
+{% set cohort_issues = audit.issues|selectattr('kind', 'equalto', 'cohort')|list %}
+{% set class_issues = audit.issues|selectattr('kind', 'equalto', 'class')|list %}
+
+<div class="container-fluid mt-4" style="max-width: 1200px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-exclamation-triangle me-2"></i>Timetable Conflicts</h1>
+            <p class="text-muted mb-0">{{ audit.entry_count }} active entries scanned in semester {{ semester }}</p>
+        </div>
+        <form method="get" class="d-flex gap-2 align-items-center">
+            <select name="semester" class="form-select" onchange="this.form.submit()">
+                {% for s in semesters %}
+                <option value="{{ s }}" {% if semester == s %}selected{% endif %}>Semester {{ s }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    {% set active_tab = 'conflicts' %}
+    {% include 'admin/timetable/_nav.html' %}
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body">
+                <div class="h3 mb-0 {{ 'text-danger' if lecturer_issues else 'text-success' }}">{{ lecturer_issues|length }}</div>
+                <div class="text-muted small">Lecturer double-bookings</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body">
+                <div class="h3 mb-0 {{ 'text-danger' if cohort_issues else 'text-success' }}">{{ cohort_issues|length }}</div>
+                <div class="text-muted small">Cohort clashes</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body">
+                <div class="h3 mb-0 {{ 'text-warning' if audit.no_timetable else 'text-success' }}">{{ audit.no_timetable|length }}</div>
+                <div class="text-muted small">Classes with no timetable</div>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center"><div class="card-body">
+                <div class="h3 mb-0 {{ 'text-warning' if audit.no_lecturer else 'text-success' }}">{{ audit.no_lecturer|length }}</div>
+                <div class="text-muted small">Classes with no lecturer</div>
+            </div></div>
+        </div>
+    </div>
+
+    {% macro issue_table(title, hint, items) %}
+    {% if items %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="mb-1">{{ title }} <span class="badge bg-danger">{{ items|length }}</span></h5>
+            <p class="text-muted small mb-3">{{ hint }}</p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light">
+                        <tr><th>Who</th><th>Day</th><th>Entry A</th><th>Entry B</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for i in items %}
+                        <tr>
+                            <td>{{ i.who }}</td>
+                            <td>{{ i.a.day_name }}</td>
+                            <td>
+                                <a href="{{ url_for('admin_timetable.edit', entry_id=i.a.id) }}" class="text-decoration-none">
+                                    <code>{{ i.a.class_id }}</code> {{ i.a.start_time }}&ndash;{{ i.a.end_time }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="{{ url_for('admin_timetable.edit', entry_id=i.b.id) }}" class="text-decoration-none">
+                                    <code>{{ i.b.class_id }}</code> {{ i.b.start_time }}&ndash;{{ i.b.end_time }}
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endmacro %}
+
+    {{ issue_table('Lecturer double-bookings', 'The same lecturer is assigned to two classes that overlap in time.', lecturer_issues) }}
+    {{ issue_table('Cohort clashes', 'Two classes of the same course and year overlap, so those students can’t attend both.', cohort_issues) }}
+    {{ issue_table('Same class twice', 'One class has two overlapping slots.', class_issues) }}
+
+    {% if not audit.issues %}
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle me-1"></i>No clashes found in semester {{ semester }}.
+    </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card h-100"><div class="card-body">
+                <h5 class="mb-1">Classes with no timetable entry</h5>
+                <p class="text-muted small mb-3">These classes will never get generated sessions.</p>
+                {% if audit.no_timetable %}
+                <ul class="list-group list-group-flush">
+                    {% for c in audit.no_timetable %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div><code>{{ c.class_id }}</code> {{ c.class_name }}
+                            <span class="text-muted small">&middot; {{ c.course_code }} Y{{ c.year }}</span></div>
+                        <a href="{{ url_for('admin_timetable.create', class_id=c.class_id) }}"
+                           class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg"></i> Add</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-success mb-0"><i class="bi bi-check-circle me-1"></i>Every class has a timetable entry.</p>
+                {% endif %}
+            </div></div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card h-100"><div class="card-body">
+                <h5 class="mb-1">Classes with no active lecturer</h5>
+                <p class="text-muted small mb-3">Sessions can’t be generated for these until a lecturer is assigned.</p>
+                {% if audit.no_lecturer %}
+                <ul class="list-group list-group-flush">
+                    {% for c in audit.no_lecturer %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div><code>{{ c.class_id }}</code> {{ c.class_name }}
+                            <span class="text-muted small">&middot; {{ c.course_code }} Y{{ c.year }}</span></div>
+                        <a href="{{ url_for('admin_courses.class_view', class_id=c.class_id) }}"
+                           class="btn btn-sm btn-outline-secondary"><i class="bi bi-person-plus"></i> Assign</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-success mb-0"><i class="bi bi-check-circle me-1"></i>Every class has an active lecturer.</p>
+                {% endif %}
+            </div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

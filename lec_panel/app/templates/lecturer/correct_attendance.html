@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Correct Attendance - {{ session.class.class_name }}{% endblock %}
+{% block title %}Correct Attendance - {{ session.class_.class_name }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
@@ -9,12 +9,12 @@
         <div class="col-md-8">
             <h2><i class="bi bi-pencil-square"></i> Correct Attendance</h2>
             <p class="text-muted mb-0">
-                <strong>{{ session.class.class_name }}</strong> - {{ session.class.course.course_name }}<br>
+                <strong>{{ session.class_.class_name }}</strong> - {{ session.class_.course.course_name }}<br>
                 {{ session.date }} | {{ session.start_time }} - {{ session.end_time }}
             </p>
         </div>
         <div class="col-md-4 text-end">
-            <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
+            <a href="{{ url_for('lecturer_sessions.view_session', session_id=session.session_id) }}" 
                class="btn btn-outline-secondary">
                 <i class="bi bi-arrow-left"></i> Back to Session
             </a>
@@ -26,7 +26,7 @@
         <div class="col-md-3">
             <div class="card border-success">
                 <div class="card-body text-center">
-                    <h3 class="text-success mb-0" id="presentCount">{{ statistics.present }}</h3>
+                    <h3 class="text-success mb-0" id="presentCount">{{ stats.present }}</h3>
                     <small class="text-muted">Present</small>
                 </div>
             </div>
@@ -34,7 +34,7 @@
         <div class="col-md-3">
             <div class="card border-warning">
                 <div class="card-body text-center">
-                    <h3 class="text-warning mb-0" id="lateCount">{{ statistics.late }}</h3>
+                    <h3 class="text-warning mb-0" id="lateCount">{{ stats.late }}</h3>
                     <small class="text-muted">Late</small>
                 </div>
             </div>
@@ -42,7 +42,7 @@
         <div class="col-md-3">
             <div class="card border-danger">
                 <div class="card-body text-center">
-                    <h3 class="text-danger mb-0" id="absentCount">{{ statistics.absent }}</h3>
+                    <h3 class="text-danger mb-0" id="absentCount">{{ stats.absent }}</h3>
                     <small class="text-muted">Absent</small>
                 </div>
             </div>
@@ -50,7 +50,7 @@
         <div class="col-md-3">
             <div class="card border-secondary">
                 <div class="card-body text-center">
-                    <h3 class="text-secondary mb-0" id="excusedCount">{{ statistics.excused or 0 }}</h3>
+                    <h3 class="text-secondary mb-0" id="excusedCount">{{ stats.excused or 0 }}</h3>
                     <small class="text-muted">Excused</small>
                 </div>
             </div>

@@ -1,6 +1,7 @@
 """
 Faker Configuration
 Shared configuration and utilities for all faker scripts
+Updated to match database schema (semester: 1 or 2)
 """
 
 from datetime import datetime, date, timedelta
@@ -60,23 +61,26 @@ def _get_current_academic_year():
         return year - 1
 
 def _get_semester_dates(academic_year):
-    """Generate semester dates for the given academic year"""
+    """
+    Generate semester dates for the given academic year
+    Schema uses: semester INTEGER (1 or 2)
+    Semester 1: September - January
+    Semester 2: February - July
+    """
     return {
-        "1.1": {"start": f"{academic_year}-09-02", "end": f"{academic_year}-11-15"},  # Sept - Nov
-        "1.2": {"start": f"{academic_year}-11-18", "end": f"{academic_year + 1}-02-07"},  # Nov - Feb
-        "2.1": {"start": f"{academic_year + 1}-02-10", "end": f"{academic_year + 1}-04-25"},  # Feb - Apr
-        "2.2": {"start": f"{academic_year + 1}-04-28", "end": f"{academic_year + 1}-07-18"},  # Apr - Jul
+        1: {"start": f"{academic_year}-09-02", "end": f"{academic_year + 1}-01-31"},  # Sept - Jan
+        2: {"start": f"{academic_year + 1}-02-01", "end": f"{academic_year + 1}-07-31"},  # Feb - Jul
     }
 
 def _get_current_semester(semester_dates):
-    """Determine current semester based on today's date"""
+    """Determine current semester based on today's date (1 or 2)"""
     for sem, dates in semester_dates.items():
         start = datetime.strptime(dates["start"], "%Y-%m-%d").date()
         end = datetime.strptime(dates["end"], "%Y-%m-%d").date()
         if start <= _TODAY <= end:
             return sem
     # Default to first semester if not in any range
-    return "1.1"
+    return 1
 
 def _get_holidays(academic_year):
     """Generate holiday dates for current and next academic year"""
@@ -98,8 +102,8 @@ SEMESTER_DATES = _get_semester_dates(CURRENT_YEAR)
 CURRENT_SEMESTER = _get_current_semester(SEMESTER_DATES)
 HOLIDAYS = _get_holidays(CURRENT_YEAR)
 
-# Semester structure (each year has 2 semesters, each semester has 2 parts)
-SEMESTERS = ["1.1", "1.2", "2.1", "2.2"]
+# Semester structure (simplified to match schema: 1 or 2)
+SEMESTERS = [1, 2]
 
 # ==================== CLASS SCHEDULES ====================
 
@@ -311,21 +315,29 @@ INSTRUCTOR_NAMES = [
     "Prof. Samuel Kimani"
 ]
 
+# Instructor ID configuration
+INSTRUCTOR_ID_PREFIX = "L"
+INSTRUCTOR_START_NUMBER = 2025001
+
 # ==================== STUDENT NAMING ====================
 
-FIRST_NAMES = [
+KENYAN_FIRST_NAMES = [
     "Brian", "Kevin", "Dennis", "Eric", "Felix", "George", "Henry", "Ian", "Jack", "Keith",
     "Leonard", "Martin", "Nathan", "Oscar", "Paul", "Quincy", "Robert", "Steven", "Thomas", "Victor",
     "Alice", "Betty", "Caroline", "Diana", "Emma", "Faith", "Grace", "Hannah", "Irene", "Joyce",
     "Karen", "Laura", "Mary", "Nancy", "Olive", "Patience", "Queen", "Ruth", "Sarah", "Tracy"
 ]
 
-LAST_NAMES = [
+KENYAN_LAST_NAMES = [
     "Kamau", "Wanjiru", "Mwangi", "Njeri", "Kariuki", "Wambui", "Kimani", "Nyambura",
     "Ochieng", "Otieno", "Akinyi", "Adhiambo", "Okello", "Wafula", "Juma", "Barasa",
     "Kiplagat", "Chebet", "Rotich", "Biwott", "Tanui", "Kipruto", "Chepkemoi", "Jepkorir",
     "Mohamed", "Hassan", "Ali", "Fatuma", "Rashid", "Salim", "Noor", "Amina"
 ]
+
+# Backward compatibility aliases
+FIRST_NAMES = KENYAN_FIRST_NAMES
+LAST_NAMES = KENYAN_LAST_NAMES
 
 # ==================== UTILITY FUNCTIONS ====================
 
@@ -341,7 +353,7 @@ def get_academic_year_for_date(target_date):
         return year - 1
 
 def get_semester_for_date(target_date):
-    """Determine which semester a date falls into"""
+    """Determine which semester a date falls into (1 or 2)"""
     for sem, dates in SEMESTER_DATES.items():
         start = datetime.strptime(dates["start"], "%Y-%m-%d").date()
         end = datetime.strptime(dates["end"], "%Y-%m-%d").date()
@@ -382,7 +394,7 @@ def generate_instructor_id(sequence):
 def generate_class_id(course_code, year, semester):
     """
     Generate class ID
-    Example: S13-Y1-S1.1 (Computer Science, Year 1, Semester 1.1)
+    Example: S13-Y1-S1 (Computer Science, Year 1, Semester 1)
     """
     return f"{course_code}-Y{year}-S{semester}"
 
@@ -410,7 +422,7 @@ def generate_phone():
 # ==================== DATE RANGES ====================
 
 def get_date_range_for_semester(semester, academic_year=CURRENT_YEAR):
-    """Get start and end dates for a semester"""
+    """Get start and end dates for a semester (1 or 2)"""
     semester_dates = _get_semester_dates(academic_year)
     dates = semester_dates.get(semester)
     if not dates:
@@ -433,9 +445,15 @@ def get_weekdays_in_range(start_date, end_date):
     
     return weekdays
 
+# ==================== COMPATIBILITY NOTES ====================
+# Schema expects: semester INTEGER (1 or 2)
+# This config now uses: SEMESTERS = [1, 2]
+# Old format "1.1", "1.2", "2.1", "2.2" has been replaced
+
 print("✅ Faker configuration loaded successfully!")
 print(f"📅 Current Date: {_TODAY}")
 print(f"📅 Current Academic Year: {CURRENT_YEAR}")
 print(f"📚 Current Semester: {CURRENT_SEMESTER}")
 print(f"🏫 Faculty: {FACULTY}")
 print(f"📖 Courses: {len(COURSES)}")
+print(f"⚠️  Semester format: INTEGER (1 or 2) - Schema compatible")

@@ -1,0 +1,210 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ class_obj.class_id }} - {{ class_obj.class_name }} - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1100px; margin: 0 auto;">
+    <div class="mb-4">
+        <a href="{{ url_for('admin_courses.view', course_code=class_obj.course_code) }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to {{ class_obj.course_code }}
+        </a>
+    </div>
+
+    <!-- Class header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                <div>
+                    <h1 class="h3 mb-1">{{ class_obj.class_name }}</h1>
+                    <p class="text-muted mb-2">
+                        <code>{{ class_obj.class_id }}</code> ·
+                        <a href="{{ url_for('admin_courses.view', course_code=class_obj.course_code) }}"
+                           class="text-decoration-none">{{ class_obj.course.course_name if class_obj.course else class_obj.course_code }}</a>
+                    </p>
+                    {% if class_obj.is_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="{{ url_for('admin_courses.class_edit', class_id=class_obj.class_id) }}"
+                       class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-pencil"></i> Edit
+                    </a>
+                    {% if class_obj.is_active %}
+                    <form method="post" action="{{ url_for('admin_courses.class_deactivate', class_id=class_obj.class_id) }}"
+                          onsubmit="return confirm('Deactivate {{ class_obj.class_id|e }}? It will no longer appear for lecturers.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-warning btn-sm">
+                            <i class="bi bi-slash-circle"></i> Deactivate
+                        </button>
+                    </form>
+                    {% else %}
+                    <form method="post" action="{{ url_for('admin_courses.class_activate', class_id=class_obj.class_id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-success btn-sm">
+                            <i class="bi bi-check-circle"></i> Activate
+                        </button>
+                    </form>
+                    {% endif %}
+
+                    {% if usage.in_use %}
+                    <button type="button" class="btn btn-outline-danger btn-sm" disabled
+                            title="In use: {{ usage.sessions }} session(s), {{ usage.timetables }} timetable entr(ies). Deactivate instead.">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                    {% else %}
+                    <form method="post" action="{{ url_for('admin_courses.class_delete', class_id=class_obj.class_id) }}"
+                          onsubmit="return confirm('Permanently delete {{ class_obj.class_id|e }}? This cannot be undone.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="row g-3">
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Year</div>
+                    <div>{{ class_obj.year or '—' }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Semester</div>
+                    <div>{{ class_obj.semester or '—' }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Year level</div>
+                    <div>{{ class_obj.year }}.{{ class_obj.semester }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="text-muted small">Sessions held</div>
+                    <div>{{ usage.sessions }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Lecturers -->
+        <div class="col-lg-5">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="mb-3"><i class="bi bi-person-badge me-2"></i>Lecturers</h5>
+
+                    {% if lecturers %}
+                    <ul class="list-group list-group-flush mb-3">
+                        {% for ci in lecturers %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                {% if ci.instructor %}
+                                <a href="{{ url_for('admin_lecturers.view', instructor_id=ci.instructor_id) }}"
+                                   class="text-decoration-none">{{ ci.instructor.instructor_name }}</a>
+                                {% if not ci.instructor.is_active %}<span class="badge bg-secondary ms-1">Inactive</span>{% endif %}
+                                {% else %}
+                                {{ ci.instructor_id }}
+                                {% endif %}
+                                <div class="text-muted small">
+                                    <code>{{ ci.instructor_id }}</code>
+                                    {% if ci.assigned_date %} · since {{ ci.assigned_date.strftime('%d %b %Y') }}{% endif %}
+                                </div>
+                            </div>
+                            <form method="post"
+                                  action="{{ url_for('admin_courses.class_remove_instructor', instructor_id=ci.instructor_id, class_id=class_obj.class_id) }}"
+                                  onsubmit="return confirm('Remove this lecturer from the class?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">No lecturers assigned yet.</p>
+                    {% endif %}
+
+                    <form method="post"
+                          action="{{ url_for('admin_courses.class_assign_instructor', class_id=class_obj.class_id) }}"
+                          class="border-top pt-3">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="row g-2">
+                            <div class="col-9">
+                                <select name="instructor_id" class="form-select form-select-sm" required>
+                                    <option value="" disabled selected>Select a lecturer…</option>
+                                    {% for i in assignable_instructors %}
+                                    <option value="{{ i.instructor_id }}">{{ i.instructor_name }} ({{ i.instructor_id }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-3">
+                                <button type="submit" class="btn btn-sm btn-primary w-100">
+                                    <i class="bi bi-plus-lg"></i> Assign
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Students -->
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="mb-1"><i class="bi bi-people me-2"></i>Students
+                        <span class="badge bg-light text-dark border ms-1">{{ students|length }}</span>
+                    </h5>
+                    <p class="text-muted small mb-3">
+                        Active students in {{ class_obj.course_code }}, year {{ class_obj.year }}.
+                    </p>
+
+                    {% if lecturer_panel_count is not none and lecturer_panel_count != students|length %}
+                    <div class="alert alert-warning small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        The lecturer panel counts <strong>{{ lecturer_panel_count }}</strong> student(s) for this class.
+                        It also requires each student's <em>current semester</em> to equal this class's semester
+                        ({{ class_obj.semester }}), so some students listed here may not appear in lecturer sessions.
+                    </div>
+                    {% endif %}
+
+                    {% if students %}
+                    <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light" style="position: sticky; top: 0;">
+                                <tr><th>ID</th><th>Name</th><th>Face</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for s in students[:200] %}
+                                <tr>
+                                    <td><a href="{{ url_for('admin_students.view', student_id=s.student_id) }}"
+                                           class="text-decoration-none"><code>{{ s.student_id }}</code></a></td>
+                                    <td>{{ s.full_name }}</td>
+                                    <td>
+                                        {% if s.has_face_encoding() %}
+                                            <span class="badge bg-success">Registered</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">Missing</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if students|length > 200 %}
+                    <p class="text-muted small mt-2 mb-0">Showing the first 200 of {{ students|length }}.</p>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted mb-0">No active students match this class.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

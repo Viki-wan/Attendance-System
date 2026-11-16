@@ -1,0 +1,15 @@
+C:\Users\HP\.vscode\attendance system\fakers\assign_instructors_to_classes.py
+C:\Users\HP\.vscode\attendance system\fakers\faker_config.py
+C:\Users\HP\.vscode\attendance system\fakers\faker_utils.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_classes.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_class_courses.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_class_enrollments.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_courses.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_holidays.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_instructors.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_sessions.py
+C:\Users\HP\.vscode\attendance system\fakers\generate_timetable.py
+C:\Users\HP\.vscode\attendance system\fakers\kist.txt
+C:\Users\HP\.vscode\attendance system\fakers\__pycache__
+C:\Users\HP\.vscode\attendance system\fakers\__pycache__\faker_config.cpython-311.pyc
+C:\Users\HP\.vscode\attendance system\fakers\__pycache__\faker_utils.cpython-311.pyc

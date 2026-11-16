@@ -9,10 +9,11 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from datetime import datetime
 import time
+import os
 
 from dotenv import load_dotenv
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for, g
+from flask import Flask, render_template, jsonify, request, send_from_directory, abort, redirect, url_for, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
@@ -164,11 +165,12 @@ def initialize_extensions(app):
         async_mode = app.config.get('SOCKETIO_ASYNC_MODE', 'threading')
         
         # Configure socketio based on async mode
+        # IMPORTANT: disable Socket.IO and engine.io logging to avoid binary spam in console
         socketio_config = {
             'async_mode': async_mode,
             'cors_allowed_origins': "*",
-            'logger': app.config.get('DEBUG', False),
-            'engineio_logger': app.config.get('DEBUG', False)
+            'logger': False,          # was app.config.get('DEBUG', False)
+            'engineio_logger': False  # was app.config.get('DEBUG', False)
         }
         
         # Only add message_queue if NOT using threading mode
@@ -219,8 +221,17 @@ def configure_celery(app):
 
 @login_manager.user_loader
 def load_user(user_id):
-    """Load user for Flask-Login"""
-    from app.models.user import Instructor
+    """
+    Load user for Flask-Login.
+    Admin sessions are stored as 'admin:<id>' (see Admin.get_id());
+    everything else is treated as an Instructor id.
+    """
+    from app.models.user import Instructor, Admin
+
+    if user_id.startswith('admin:'):
+        admin_pk = user_id.split(':', 1)[1]
+        return Admin.query.get(int(admin_pk))
+
     return Instructor.query.get(user_id)
 
 
@@ -282,6 +293,7 @@ def register_blueprints(app):
     # Lecturer routes - Preferences
     from app.routes.lecturer.preferences import preferences_bp
     app.register_blueprint(preferences_bp)
+
     
     # Try to import optional blueprints
     try:
@@ -295,20 +307,97 @@ def register_blueprints(app):
         app.register_blueprint(dismissals_bp)
     except ImportError:
         pass
+
+    # Admin routes - Dashboard (Phase 0)
+    from app.routes.admin.dashboard import admin_dashboard_bp
+    app.register_blueprint(admin_dashboard_bp)
+
+    # Admin routes - Lecturers (Phase 2)
+    from app.routes.admin.lecturers import admin_lecturers_bp
+    app.register_blueprint(admin_lecturers_bp)
+
+     # Admin routes - Students (Phase 3)
+    from app.routes.admin.students import admin_students_bp
+    app.register_blueprint(admin_students_bp)
+
+    # Admin routes - Courses (Phase 4)
+    from app.routes.admin.courses import admin_courses_bp
+    app.register_blueprint(admin_courses_bp)
+
+    # Admin routes - Timetable (Phase 5)
+    from app.routes.admin.timetable import admin_timetable_bp
+    app.register_blueprint(admin_timetable_bp)
+    
+    # Admin routes - Sessions (Phase 6)
+    from app.routes.admin.sessions import admin_sessions_bp
+    app.register_blueprint(admin_sessions_bp)
+
+    # Admin routes - Attendance (Phase 7)
+    from app.routes.admin.attendance import admin_attendance_bp
+    app.register_blueprint(admin_attendance_bp)
+
+    # Admin routes - Settings (Phase 8)
+    from app.routes.admin.settings import admin_settings_bp
+    app.register_blueprint(admin_settings_bp)
     
     # API routes (if enabled)
     if app.config.get('ENABLE_API', False):
         from app.routes.api.v1 import api_bp
         app.register_blueprint(api_bp, url_prefix='/api/v1')
+
+    STUDENT_IMAGES_PATH = r'C:\Users\HP\.vscode\attendance system\student_images'
+    
+    @app.route('/student_images/<path:filename>')
+    def serve_student_images(filename):
+        """
+        Serve student images from external directory.
+        This handles requests like /student_images/S18_45808_22.jpg
+        """
+        try:
+            # Security: prevent directory traversal
+            filename = os.path.basename(filename)
+            
+            file_path = os.path.join(STUDENT_IMAGES_PATH, filename)
+            
+            if os.path.exists(file_path):
+                return send_from_directory(STUDENT_IMAGES_PATH, filename)
+            else:
+                app.logger.debug(f"Student image not found: {filename}")
+                # Return a default SVG avatar
+                return generate_default_avatar(), 200, {'Content-Type': 'image/svg+xml'}
+                
+        except Exception as e:
+            app.logger.error(f"Error serving student image {filename}: {e}")
+            return generate_default_avatar(), 200, {'Content-Type': 'image/svg+xml'}
+    
+    def generate_default_avatar():
+        """Generate a default SVG avatar"""
+        return '''<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+            <rect width="200" height="200" fill="#6c757d"/>
+            <text x="100" y="100" font-size="80" fill="white" 
+                  text-anchor="middle" dominant-baseline="central" 
+                  font-family="Arial, sans-serif" font-weight="bold">?</text>
+        </svg>'''
     
     # Main/Home route
     @app.route('/')
     def index():
         """Redirect to appropriate dashboard"""
         if current_user.is_authenticated:
-            return redirect(url_for('dashboard.index'))
+            if hasattr(current_user, 'instructor_id'):
+                return redirect(url_for('dashboard.index'))
+            return redirect(url_for('admin_dashboard.index'))
         return redirect(url_for('auth.login'))
-    
+    @app.route('/test-static')
+    def test_static():
+        return '''
+        <script src="/static/js/camera_handler.js"></script>
+        <script>
+            setTimeout(() => {
+                alert('CameraHandler: ' + (typeof CameraHandler));
+            }, 1000);
+        </script>
+        '''
     # Health check endpoint
     @app.route('/health')
     def health_check():
@@ -618,7 +707,9 @@ def register_context_processors(app):
     def inject_globals():
         """Inject global variables into all templates"""
         unread_count = 0
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and hasattr(current_user, 'instructor_id'):
+            # Notifications are instructor-scoped today; admin notifications
+            # are out of scope for Phase 0.
             from app.models.notification import Notification
             unread_count = Notification.query.filter_by(
                 user_id=current_user.instructor_id,

@@ -13,6 +13,9 @@ class AttendanceRealtimeHandler {
         this.recognizedStudents = new Set();
         this.lastHeartbeat = Date.now();
         this.isRecognizing = false;
+        this.recognitionInterval = null;
+        this.recognitionFPS = 2; // Process 2 frames per second
+        this.frameNumber = 0; // Track frame numbers for debugging
         
         this.initializeSocketHandlers();
         this.initializeUIHandlers();
@@ -25,19 +28,41 @@ class AttendanceRealtimeHandler {
     initializeSocketHandlers() {
         // Connection events
         this.socket.on('connect', () => {
-            console.log('âœ… Connected to server');
+            console.log('✅ Connected to server');
             this.showNotification('Connected', 'success');
             this.joinSession();
         });
 
         this.socket.on('disconnect', () => {
-            console.log('â�œ Disconnected from server');
+            console.log('❌ Disconnected from server');
             this.showNotification('Disconnected - Reconnecting...', 'warning');
         });
 
         this.socket.on('error', (data) => {
             console.error('Socket error:', data);
             this.showNotification(data.message || 'An error occurred', 'error');
+        });
+
+        // Recognition error events
+        this.socket.on('recognition_error', (data) => {
+            console.error('Recognition error:', data);
+            this.showNotification(data.message || 'Face recognition error', 'error');
+        });
+
+        // Frame processing events
+        this.socket.on('frame_processing', (data) => {
+            console.log('Frame queued for processing:', data.task_id);
+        });
+
+        this.socket.on('frame_error', (data) => {
+            console.error('Frame processing error:', data);
+            if (data.frame_number) {
+                console.error(`Error on frame ${data.frame_number}:`, data.message || data.error);
+            }
+        });
+
+        this.socket.on('frame_warning', (data) => {
+            console.warn('Frame quality warning:', data);
         });
 
         // Recognition events
@@ -47,6 +72,11 @@ class AttendanceRealtimeHandler {
 
         this.socket.on('attendance_marked', (data) => {
             this.handleAttendanceMarked(data);
+        });
+
+        // NEW: Face detection overlay event
+        this.socket.on('face_detection_overlay', (data) => {
+            this.handleFaceDetectionOverlay(data);
         });
 
         this.socket.on('unknown_face_detected', (data) => {
@@ -63,7 +93,7 @@ class AttendanceRealtimeHandler {
             this.updateStatistics(data);
         });
 
-        // Attendance events
+        // Bulk attendance events
         this.socket.on('bulk_attendance_marked', (data) => {
             this.showNotification(
                 `Marked ${data.count} students as ${data.status}`, 
@@ -94,6 +124,11 @@ class AttendanceRealtimeHandler {
             this.isRecognizing = false;
             this.updateRecognitionStatus(false);
             this.showNotification('Face recognition stopped', 'info');
+            
+            // Clear overlay when stopped
+            if (this.overlayHandler) {
+                this.overlayHandler.clear();
+            }
         });
 
         this.socket.on('session_ended', (data) => {
@@ -140,7 +175,6 @@ class AttendanceRealtimeHandler {
     }
 
     requestInitialData() {
-        // Request all necessary data on join
         this.socket.emit('request_session_stats', {
             session_id: this.sessionId
         });
@@ -161,7 +195,139 @@ class AttendanceRealtimeHandler {
                     session_id: this.sessionId
                 });
             }
-        }, 30000); // Every 30 seconds
+        }, 30000);
+    }
+
+    // ========== Recognition Control Methods ==========
+    
+    startRecognition() {
+        if (this.isRecognizing) {
+            console.log('Recognition already active');
+            return;
+        }
+        
+        console.log('Starting face recognition...');
+        this.isRecognizing = true;
+        
+        // Initialize overlay handler if not already created
+        if (!this.overlayHandler) {
+            try {
+                this.overlayHandler = new FaceOverlayHandler(
+                    'camera-canvas',
+                    'recognition-overlay'
+                );
+                console.log('✅ Face overlay handler initialized');
+            } catch (error) {
+                console.error('Failed to initialize overlay handler:', error);
+            }
+        }
+        
+        this.socket.emit('start_recognition', {
+            session_id: this.sessionId,
+            user_id: this.userId
+        });
+        
+        this.startFrameProcessing();
+        this.updateRecognitionStatus(true);
+        
+        console.log('✅ Face recognition started');
+    }
+    
+    stopRecognition() {
+        if (!this.isRecognizing) {
+            console.log('Recognition already stopped');
+            return;
+        }
+        
+        console.log('Stopping face recognition...');
+        this.isRecognizing = false;
+        
+        if (this.recognitionInterval) {
+            clearInterval(this.recognitionInterval);
+            this.recognitionInterval = null;
+        }
+        
+        // Clear overlay
+        if (this.overlayHandler) {
+            this.overlayHandler.clear();
+        }
+        
+        this.socket.emit('stop_recognition', {
+            session_id: this.sessionId,
+            user_id: this.userId
+        });
+        
+        this.updateRecognitionStatus(false);
+        
+        console.log('🛑 Face recognition stopped');
+    }
+    
+    startFrameProcessing() {
+        if (this.recognitionInterval) {
+            clearInterval(this.recognitionInterval);
+        }
+        
+        const intervalMs = 1000 / this.recognitionFPS;
+        
+        this.recognitionInterval = setInterval(async () => {
+            if (!this.isRecognizing) return;
+            
+            try {
+                await this.processFrame();
+            } catch (error) {
+                console.error('Frame processing error:', error);
+            }
+        }, intervalMs);
+        
+        console.log(`Frame processing started at ${this.recognitionFPS} FPS`);
+    }
+    
+    async processFrame() {
+        if (!window.cameraHandler || !window.cameraHandler.isActive) {
+            console.warn('Camera handler not active, skipping frame');
+            return;
+        }
+        
+        const frameData = window.cameraHandler.captureFrame();
+        
+        if (!frameData) {
+            console.warn('Failed to capture frame');
+            return;
+        }
+        
+        this.frameNumber++;
+        if (this.frameNumber % 10 === 0) {
+            console.log(`Processing frame #${this.frameNumber}...`);
+        }
+        
+        this.socket.emit('process_frame', {
+            session_id: this.sessionId,
+            user_id: this.userId,
+            frame_data: frameData,
+            timestamp: new Date().toISOString(),
+            frame_number: this.frameNumber
+        });
+    }
+
+    // ========== NEW: Face Detection Overlay Handler ==========
+    
+    handleFaceDetectionOverlay(data) {
+        if (!this.overlayHandler) return;
+        
+        console.log(`Face overlay update: ${data.faces.length} faces detected`);
+        
+        // Update overlay with detected faces
+        this.overlayHandler.updateFaces(
+            data.faces,
+            data.frame_width,
+            data.frame_height
+        );
+        
+        // Update detection counter
+        const detectedCount = document.getElementById('detected-count');
+        if (detectedCount) {
+            detectedCount.textContent = data.faces.length;
+        }
     }
 
     // ========== Recognition Handlers ==========
@@ -169,58 +335,46 @@ class AttendanceRealtimeHandler {
     handleStudentRecognized(data) {
         const {student_id, student_name, confidence, status} = data;
         
-        // Add to recognized set
         this.recognizedStudents.add(student_id);
         
-        // Show toast notification
         this.showNotification(
             `Recognized: ${student_name} (${(confidence * 100).toFixed(1)}%)`,
             'success'
         );
         
-        // Update UI
         this.updateStudentStatus(student_id, status);
         
-        // Add to recent recognitions feed
         this.addToRecentFeed({
             student_name,
             confidence,
             timestamp: new Date().toLocaleTimeString()
         });
         
-        // Play sound (optional)
         this.playRecognitionSound();
     }
 
     handleAttendanceMarked(data) {
         const {student_id, student_name, status, method} = data;
         
-        // Update student card
         this.updateStudentStatus(student_id, status);
         
-        // Show notification
         const methodText = method === 'manual' ? '(Manual)' : '(Auto)';
         this.showNotification(
             `${student_name} marked as ${status} ${methodText}`,
             'info'
         );
         
-        // Request updated statistics
         this.requestStats();
     }
 
     handleUnknownFace(data) {
-        const {image_url, timestamp, location} = data;
-        
-        // Show alert
         this.showNotification(
             'Unknown person detected in camera',
             'warning'
         );
         
-        // Optionally display image
-        if (image_url) {
-            this.displayUnknownFaceAlert(image_url);
+        if (data.image_url) {
+            this.displayUnknownFaceAlert(data.image_url);
         }
     }
 
@@ -232,17 +386,14 @@ class AttendanceRealtimeHandler {
         );
         
         if (studentCard) {
-            // Remove all status classes
             studentCard.classList.remove(
                 'status-present', 
                 'status-absent', 
                 'status-late'
             );
             
-            // Add new status class
             studentCard.classList.add(`status-${status.toLowerCase()}`);
             
-            // Update status badge
             const badge = studentCard.querySelector('.status-badge');
             if (badge) {
                 badge.textContent = status;
@@ -253,7 +404,6 @@ class AttendanceRealtimeHandler {
                 }`;
             }
             
-            // Update timestamp
             const timestamp = studentCard.querySelector('.timestamp');
             if (timestamp) {
                 timestamp.textContent = new Date().toLocaleTimeString();
@@ -262,31 +412,36 @@ class AttendanceRealtimeHandler {
     }
 
     updateStatistics(stats) {
-        // Update counters
-        document.getElementById('present-count').textContent = 
-            stats.present || 0;
-        document.getElementById('late-count').textContent = 
-            stats.late || 0;
-        document.getElementById('absent-count').textContent = 
-            stats.absent || 0;
-        document.getElementById('total-count').textContent = 
-            stats.total_expected || 0;
+        const presentCount = document.getElementById('present-count');
+        const lateCount = document.getElementById('late-count');
+        const absentCount = document.getElementById('absent-count');
+        const totalCount = document.getElementById('total-count');
         
-        // Update attendance rate
+        if (presentCount) presentCount.textContent = stats.present || 0;
+        if (lateCount) lateCount.textContent = stats.late || 0;
+        if (absentCount) absentCount.textContent = stats.absent || 0;
+        if (totalCount) totalCount.textContent = stats.total_expected || 0;
+        
         const rate = stats.attendance_rate || 0;
-        document.getElementById('attendance-rate').textContent = 
-            `${rate.toFixed(1)}%`;
+        const rateElement = document.getElementById('attendance-rate') || 
+                           document.getElementById('attendance-percentage');
+        if (rateElement) {
+            rateElement.textContent = `${rate.toFixed(1)}%`;
+        }
     }
 
     updateProgressBar(stats) {
-        const progressBar = document.getElementById('attendance-progress');
+        const progressBar = document.getElementById('attendance-progress') ||
+                           document.getElementById('attendance-progress-bar');
+        
+        if (!progressBar) return;
+        
         const rate = stats.attendance_rate || 0;
         
         progressBar.style.width = `${rate}%`;
         progressBar.setAttribute('aria-valuenow', rate);
         
-        // Change color based on rate
-        progressBar.className = 'progress-bar';
+        progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
         if (rate >= 80) {
             progressBar.classList.add('bg-success');
         } else if (rate >= 60) {
@@ -296,8 +451,36 @@ class AttendanceRealtimeHandler {
         }
     }
 
+    addToRecentFeed(data) {
+        const feed = document.getElementById('recent-recognitions-feed');
+        if (!feed) return;
+        
+        const item = document.createElement('div');
+        item.className = 'recognition-item new';
+        item.innerHTML = `
+            <div class="recognition-time">${data.timestamp}</div>
+            <div class="recognition-name">${data.student_name}</div>
+            <div class="recognition-confidence">
+                ${(data.confidence * 100).toFixed(1)}%
+            </div>
+        `;
+        
+        feed.insertBefore(item, feed.firstChild);
+        
+        if (feed.children.length > 10) {
+            feed.removeChild(feed.lastChild);
+        }
+        
+        setTimeout(() => {
+            item.classList.remove('new');
+        }, 2000);
+    }
+
+
     updateStudentList(students) {
         const container = document.getElementById('student-list');
+        if (!container) return;
+        
         container.innerHTML = '';
         
         students.forEach(student => {
@@ -350,6 +533,8 @@ class AttendanceRealtimeHandler {
 
     updateRecentRecognitions(recognitions) {
         const feed = document.getElementById('recent-recognitions-feed');
+        if (!feed) return;
+        
         feed.innerHTML = '';
         
         recognitions.forEach(rec => {
@@ -368,6 +553,8 @@ class AttendanceRealtimeHandler {
 
     addToRecentFeed(data) {
         const feed = document.getElementById('recent-recognitions-feed');
+        if (!feed) return;
+        
         const item = document.createElement('div');
         item.className = 'recognition-item new';
         item.innerHTML = `
@@ -410,6 +597,7 @@ class AttendanceRealtimeHandler {
         });
     }
 
+
     addNote(studentId, note) {
         // Find attendance record
         const attendanceId = this.getAttendanceId(studentId);
@@ -442,14 +630,13 @@ class AttendanceRealtimeHandler {
             indicator.className = `recognition-status ${
                 isActive ? 'active' : 'inactive'
             }`;
-            indicator.textContent = isActive ? 
-                'Recognition Active' : 
-                'Recognition Stopped';
+            indicator.innerHTML = isActive ? 
+                '<i class="bi bi-circle-fill"></i> Recognition Active' : 
+                '<i class="bi bi-circle-fill"></i> Recognition Stopped';
         }
     }
 
     showNotification(message, type = 'info') {
-        // Use Bootstrap Toast
         const toast = document.createElement('div');
         toast.className = `toast align-items-center text-white bg-${
             type === 'success' ? 'success' :
@@ -471,33 +658,31 @@ class AttendanceRealtimeHandler {
         `;
         
         const container = document.getElementById('toast-container');
-        container.appendChild(toast);
-        
-        const bsToast = new bootstrap.Toast(toast);
-        bsToast.show();
-        
-        // Remove after hidden
-        toast.addEventListener('hidden.bs.toast', () => {
-            toast.remove();
-        });
+        if (container) {
+            container.appendChild(toast);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
+        }
     }
 
     playRecognitionSound() {
-        // Optional: Play sound on recognition
         const audio = new Audio('/static/sounds/recognition.mp3');
         audio.volume = 0.3;
-        audio.play().catch(() => {
-            // Ignore if sound fails
-        });
+        audio.play().catch(() => {});
     }
 
     handleSessionEnded(data) {
         this.showNotification('Session has ended', 'info');
         
-        // Show final statistics modal
-        this.showFinalStatistics(data.statistics);
+        if (data.statistics) {
+            this.showFinalStatistics(data.statistics);
+        }
         
-        // Disable controls
         this.disableControls();
     }
 
@@ -505,6 +690,34 @@ class AttendanceRealtimeHandler {
         document.querySelectorAll('.session-control-btn').forEach(btn => {
             btn.disabled = true;
         });
+    }
+
+    handleSyncResponse(data) {
+        if (data.success) {
+            this.showNotification('Data synchronized', 'success');
+            if (data.stats) {
+                this.updateStatistics(data.stats);
+            }
+        }
+    }
+
+    showSystemNotification(data) {
+        this.showNotification(data.message, data.type || 'info');
+    }
+
+    displayUnknownFaceAlert(imageUrl) {
+        // Implementation for showing unknown face alert
+        console.log('Unknown face detected:', imageUrl);
+    }
+
+    showFinalStatistics(statistics) {
+        // Implementation for showing final stats
+        console.log('Final statistics:', statistics);
+    }
+
+    getAttendanceId(studentId) {
+        // Implementation to get attendance ID
+        return null;
     }
 
     // ========== Initialization ==========
@@ -538,27 +751,39 @@ class AttendanceRealtimeHandler {
         });
 
         // Bulk actions
-        document.getElementById('mark-all-present')?.addEventListener('click', () => {
-            const allIds = this.getAllAbsentStudentIds();
-            this.bulkMarkAttendance(allIds, 'Present');
-        });
+        const markAllPresentBtn = document.getElementById('mark-all-present');
+        if (markAllPresentBtn) {
+            markAllPresentBtn.addEventListener('click', () => {
+                const allIds = this.getAllAbsentStudentIds();
+                this.bulkMarkAttendance(allIds, 'Present');
+            });
+        }
 
-        document.getElementById('mark-all-absent')?.addEventListener('click', () => {
-            const unmarkedIds = this.getUnmarkedStudentIds();
-            this.bulkMarkAttendance(unmarkedIds, 'Absent');
-        });
+        const markAllAbsentBtn = document.getElementById('mark-all-absent');
+        if (markAllAbsentBtn) {
+            markAllAbsentBtn.addEventListener('click', () => {
+                const unmarkedIds = this.getUnmarkedStudentIds();
+                this.bulkMarkAttendance(unmarkedIds, 'Absent');
+            });
+        }
 
         // Student search/filter
-        document.getElementById('student-search')?.addEventListener('input', (e) => {
-            this.filterStudents(e.target.value);
-        });
+        const searchInput = document.getElementById('student-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.filterStudents(e.target.value);
+            });
+        }
     }
 
     filterStudents(searchTerm) {
         const term = searchTerm.toLowerCase();
-        document.querySelectorAll('.student-card').forEach(card => {
-            const name = card.querySelector('.student-details h5').textContent.toLowerCase();
-            const id = card.querySelector('.student-details p').textContent.toLowerCase();
+        document.querySelectorAll('.student-card, .student-item').forEach(card => {
+            const nameElement = card.querySelector('.student-details h5, .student-name');
+            const idElement = card.querySelector('.student-details p, .student-id');
+            
+            const name = nameElement ? nameElement.textContent.toLowerCase() : '';
+            const id = idElement ? idElement.textContent.toLowerCase() : '';
             
             if (name.includes(term) || id.includes(term)) {
                 card.style.display = '';
@@ -570,7 +795,7 @@ class AttendanceRealtimeHandler {
 
     getAllAbsentStudentIds() {
         const ids = [];
-        document.querySelectorAll('.student-card').forEach(card => {
+        document.querySelectorAll('.student-card, .student-item').forEach(card => {
             const badge = card.querySelector('.status-badge');
             if (badge && badge.textContent.trim() === 'Absent') {
                 ids.push(card.dataset.studentId);
@@ -581,7 +806,7 @@ class AttendanceRealtimeHandler {
 
     getUnmarkedStudentIds() {
         const ids = [];
-        document.querySelectorAll('.student-card').forEach(card => {
+        document.querySelectorAll('.student-card, .student-item').forEach(card => {
             const badge = card.querySelector('.status-badge');
             if (!badge || badge.textContent.trim() === 'Absent') {
                 ids.push(card.dataset.studentId);
@@ -591,30 +816,27 @@ class AttendanceRealtimeHandler {
     }
 
     showNoteModal(studentId) {
-        const modal = new bootstrap.Modal(document.getElementById('noteModal'));
-        document.getElementById('noteStudentId').value = studentId;
-        document.getElementById('noteText').value = '';
-        modal.show();
+        const modal = document.getElementById('noteModal');
+        if (modal) {
+            const bsModal = new bootstrap.Modal(modal);
+            const studentIdInput = document.getElementById('noteStudentId');
+            const noteTextArea = document.getElementById('noteText');
+            
+            if (studentIdInput) studentIdInput.value = studentId;
+            if (noteTextArea) noteTextArea.value = '';
+            
+            bsModal.show();
+        }
     }
 
     // Cleanup on page unload
     destroy() {
+        this.stopRecognition();
         this.leaveSession();
         this.socket.disconnect();
     }
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    const sessionId = document.getElementById('session-id')?.value;
-    const userId = document.getElementById('user-id')?.value;
-    
-    if (sessionId && userId) {
-        window.attendanceHandler = new AttendanceRealtimeHandler(sessionId, userId);
-        
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', () => {
-            window.attendanceHandler.destroy();
-        });
-    }
-});
+// DO NOT auto-initialize - let live_attendance.html do it
+window.AttendanceRealtimeHandler = AttendanceRealtimeHandler;
+console.log('✅ AttendanceRealtimeHandler class loaded and exposed globally');

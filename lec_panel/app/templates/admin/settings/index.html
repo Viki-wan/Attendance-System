@@ -1,0 +1,167 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Settings - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 900px; margin: 0 auto;">
+    <div class="mb-3">
+        <h1 class="h3 mb-1"><i class="bi bi-gear me-2"></i>Settings</h1>
+        <p class="text-muted mb-0">Changes apply immediately; no restart is needed. Every change is recorded in the activity log.</p>
+    </div>
+
+    <!-- Semester rollover (Phase 7c): a notice when due, otherwise a quiet link -->
+    {% if rollover and (rollover.due or rollover.blocked or rollover.reversed) %}
+    <div class="alert {% if rollover.blocked %}alert-danger{% else %}alert-warning{% endif %} d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><i class="bi bi-arrow-repeat me-1"></i>{{ rollover.message }}</div>
+        <a class="btn btn-sm btn-dark" href="{{ url_for('admin_settings.rollover') }}">
+            {% if rollover.due %}Review and run{% else %}Open rollover page{% endif %}
+        </a>
+    </div>
+    {% else %}
+    <p class="small text-muted mb-3"><i class="bi bi-arrow-repeat me-1"></i>
+        <a href="{{ url_for('admin_settings.rollover') }}">Semester rollover</a>:
+        {{ rollover.message if rollover else 'status unavailable' }}</p>
+    {% endif %}
+
+    <!-- Yearly promotion (Phase 7d): a notice when it needs attention, otherwise a quiet link -->
+    {% if promotion and (promotion.due or promotion.blocked or promotion.reversed or promotion.needs_baseline) %}
+    <div class="alert {% if promotion.blocked %}alert-danger{% else %}alert-warning{% endif %} d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><i class="bi bi-mortarboard me-1"></i>{{ promotion.message }}</div>
+        <a class="btn btn-sm btn-dark" href="{{ url_for('admin_settings.promotion') }}">
+            {% if promotion.due %}Review and run{% elif promotion.needs_baseline %}Set up{% else %}Open promotion page{% endif %}
+        </a>
+    </div>
+    {% else %}
+    <p class="small text-muted mb-3"><i class="bi bi-mortarboard me-1"></i>
+        <a href="{{ url_for('admin_settings.promotion') }}">Yearly promotion</a>:
+        {{ promotion.message if promotion else 'status unavailable' }}</p>
+    {% endif %}
+
+    <!-- Academic calendar: its own form (separate POST), one set of dates per academic year -->
+    <div class="card mb-4" id="calendar">
+        <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <h5 class="mb-0"><i class="bi bi-calendar3 me-2"></i>Academic calendar</h5>
+            <form method="get" action="{{ url_for('admin_settings.index') }}" class="d-flex align-items-center gap-2">
+                <label for="cal_year" class="small text-muted mb-0">Academic year</label>
+                <select id="cal_year" name="year" class="form-select form-select-sm w-auto" onchange="this.form.submit()">
+                    {% for o in calendar.options %}
+                    <option value="{{ o.year }}" {% if o.year == calendar.year %}selected{% endif %}>{{ o.label }}{% if o.current %} (current){% endif %}{% if o.stored %} &bull; custom{% endif %}</option>
+                    {% endfor %}
+                </select>
+                <noscript><button type="submit" class="btn btn-sm btn-outline-secondary">Show</button></noscript>
+            </form>
+        </div>
+        <div class="card-body">
+            <div class="alert {% if calendar.today_state == 'in_session' %}alert-success{% else %}alert-secondary{% endif %} py-2 small">
+                <i class="bi bi-calendar-check me-1"></i>Today is {{ calendar.today }}. {{ calendar.today_text }}
+            </div>
+            <p class="text-muted small">
+                The whole campus shares these dates. The days between the two semesters count as semester 1 until
+                31 December and as semester 2 from 1 January; the holiday after semester 2 counts as semester 2.
+                Changing a date does not edit existing sessions or timetable entries.
+            </p>
+
+            <form method="post" action="{{ url_for('admin_settings.calendar_save') }}" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="academic_year" value="{{ calendar.year }}">
+
+                {% if calendar_errors.get('_calendar') %}
+                <div class="alert alert-danger py-2 small">{{ calendar_errors['_calendar'] }}</div>
+                {% endif %}
+
+                <div class="row g-3">
+                    {% for f in calendar.fields %}
+                    <div class="col-md-3 col-6">
+                        <label class="form-label fw-semibold mb-1" for="cal_{{ f.name }}">{{ f.label }}</label>
+                        <input type="date" id="cal_{{ f.name }}" name="{{ f.name }}"
+                               class="form-control {% if calendar_errors.get(f.name) %}is-invalid{% endif %}"
+                               value="{{ f.value }}" required>
+                        {% if calendar_errors.get(f.name) %}<div class="invalid-feedback">{{ calendar_errors[f.name] }}</div>{% endif %}
+                        <div class="small text-muted mt-1">default {{ f.default }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+                    <div class="small text-muted">
+                        {{ calendar.label }}:
+                        {% if calendar.custom %}
+                            <span class="badge bg-info text-dark">Custom</span>
+                            {% if calendar.updated_at %}<span title="UTC">changed {{ calendar.updated_at }}</span>{% endif %}
+                        {% else %}
+                            <span class="badge bg-light text-dark border">Default</span>
+                        {% endif %}
+                        {% if calendar.unusable %}
+                            <span class="text-danger">The stored dates are unusable, so the defaults are in use. Save or reset to clear them.</span>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save calendar</button>
+                        <button type="submit" class="btn btn-outline-secondary"
+                                formaction="{{ url_for('admin_settings.calendar_reset', year=calendar.year) }}" formnovalidate
+                                {% if not calendar.stored %}disabled{% endif %}
+                                onclick="return confirm('Reset the {{ calendar.label }} calendar to its default dates? Any other unsaved edits on this card are discarded.');">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset to defaults
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('admin_settings.save') }}" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- First submit button = what Enter does; keeps Enter from triggering a Reset button -->
+        <button type="submit" tabindex="-1" aria-hidden="true" style="position:absolute;left:-9999px;"></button>
+
+        {% for group in groups %}
+        <div class="card mb-4">
+            <div class="card-header bg-white"><h5 class="mb-0">{{ group.title }}</h5></div>
+            <div class="card-body">
+                {% if group.note %}
+                <div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>{{ group.note }}</div>
+                {% endif %}
+
+                {% for s in group['items'] %}
+                <div class="row g-3 align-items-start {% if not loop.last %}pb-3 mb-3 border-bottom{% endif %}">
+                    <div class="col-md-7">
+                        <label class="form-label fw-semibold mb-1" for="f_{{ s.key }}">{{ s.label }}</label>
+                        <div class="text-muted small">{{ s.help }}</div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="input-group">
+                            <input type="number" id="f_{{ s.key }}" name="{{ s.key }}"
+                                   class="form-control {% if errors.get(s.key) %}is-invalid{% endif %}"
+                                   value="{{ s.input_value }}" min="{{ s.min }}" max="{{ s.max }}" step="{{ s.step }}" required>
+                            {% if s.unit %}<span class="input-group-text">{{ s.unit }}</span>{% endif %}
+                            <button type="submit" class="btn btn-outline-secondary"
+                                    formaction="{{ url_for('admin_settings.reset', key=s.key) }}" formnovalidate
+                                    title="Reset to default ({{ s.default_text }})"
+                                    {% if not s.stored %}disabled{% endif %}
+                                    onclick="return confirm('Reset {{ s.label }} to its default ({{ s.default_text }})? Any other unsaved edits on this page are discarded.');">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </button>
+                            {% if errors.get(s.key) %}<div class="invalid-feedback">{{ errors[s.key] }}</div>{% endif %}
+                        </div>
+                        <div class="small text-muted mt-1">
+                            Allowed {{ s.min }}&ndash;{{ s.max }} &middot; default {{ s.default_text }}
+                            {% if s.stored and not s.is_default %}
+                                &middot; <span class="badge bg-info text-dark">Custom</span>
+                                {% if s.updated_at %}<span title="UTC">changed {{ s.updated_at }}</span>{% endif %}
+                            {% else %}
+                                &middot; <span class="badge bg-light text-dark border">Default</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="d-flex justify-content-end mb-5">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -130,18 +130,7 @@
         </div>
     {% endif %}
 
-    <!-- Debug Info (Remove in production) -->
-    {% if config.DEBUG %}
-    <div class="card mt-4">
-        <div class="card-body">
-            <h6>Debug Info:</h6>
-            <p>Total sessions: {{ sessions|length }}</p>
-            <p>Sessions by date keys: {{ sessions_by_date.keys()|list }}</p>
-        </div>
-    </div>
-    {% endif %}
-</div>
-
+    
 <style>
 .list-group-item {
     transition: background-color 0.2s;

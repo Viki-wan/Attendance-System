@@ -1,0 +1,58 @@
+{# Slim auto-apply filter bar shared by Sessions and Classes.
+    Set `filter_endpoint` and (optionally) `extra_hidden` (dict) before including. #}
+ <form method="get" class="at-filters mb-3" id="attFilters" action="{{ url_for(filter_endpoint) }}">
+     <div class="d-flex flex-wrap align-items-center gap-2">
+         <select name="range" id="rangeSelect" class="form-select form-select-sm w-auto" aria-label="Date range">
+             {% for key, label in ranges %}
+             <option value="{{ key }}" {% if f.range_key == key %}selected{% endif %}>{{ label }}</option>
+             {% endfor %}
+             {% if f.range_key == 'custom' %}<option value="custom" selected>Custom dates</option>{% endif %}
+         </select>
+         <div class="input-group input-group-sm w-auto">
+             <span class="input-group-text">From</span>
+             <input type="date" name="date_from" class="form-control" value="{{ f.date_from }}"
+                    aria-label="From date" onchange="this.form.submit()">
+         </div>
+         <div class="input-group input-group-sm w-auto">
+             <span class="input-group-text">To</span>
+             <input type="date" name="date_to" class="form-control" value="{{ f.date_to }}"
+                    aria-label="To date" onchange="this.form.submit()">
+         </div>
+         <select name="course" class="form-select form-select-sm w-auto" aria-label="Course" onchange="this.form.submit()">
+             <option value="">All courses</option>
+             {% for c in courses %}
+             <option value="{{ c.course_code }}" {% if f.course == c.course_code %}selected{% endif %}>{{ c.course_code }}</option>
+             {% endfor %}
+         </select>
+         <select name="year" class="form-select form-select-sm w-auto" aria-label="Year" onchange="this.form.submit()">
+             <option value="">All years</option>
+             {% for y in years %}
+             <option value="{{ y }}" {% if f.year == y %}selected{% endif %}>Year {{ y }}</option>
+             {% endfor %}
+         </select>
+         <div class="input-group input-group-sm w-auto">
+             <span class="input-group-text"><i class="bi bi-search"></i></span>
+             <input type="search" name="class_id" class="form-control" style="width: 150px;"
+                    placeholder="Class, e.g. SCI 101" value="{{ f.class_id }}" aria-label="Class"
+                    onchange="this.form.submit()">
+         </div>
+         {% for k, v in (extra_hidden or {}).items() %}
+             {% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}
+         {% endfor %}
+         {% if active_filters %}
+         <a href="{{ url_for(filter_endpoint) }}" class="btn btn-sm btn-link">Clear</a>
+         {% endif %}
+     </div>
+ </form>
+ <script>
+ (function () {
+     var form = document.getElementById('attFilters');
+     var range = document.getElementById('rangeSelect');
+     // Choosing a quick range replaces any custom dates
+     range.addEventListener('change', function () {
+         form.elements['date_from'].value = '';
+         form.elements['date_to'].value = '';
+         form.submit();
+     });
+ })();
+ </script>

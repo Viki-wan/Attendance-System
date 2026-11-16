@@ -28,6 +28,8 @@ def login():
     """
     # Redirect if already logged in
     if current_user.is_authenticated:
+        if not hasattr(current_user, 'instructor_id'):
+            return redirect(url_for('admin_dashboard.index'))
         if hasattr(current_user, 'requires_password_change') and current_user.requires_password_change():
             return redirect(url_for('auth.first_time_setup'))
         return redirect(url_for('dashboard.index'))
@@ -46,7 +48,22 @@ def login():
                 flash('Please provide both identifier and password.', 'error')
                 return render_template('auth/login.html')
             
-            # Attempt login - handle 4 return values
+            # Try admin login first (shared login form for both roles)
+            admin_success, admin_message, admin_user = AuthService.login_admin(
+                identifier, password, remember_me
+            )
+            
+            if admin_success and admin_user:
+                logger.info(f"Admin {admin_user.username} logged in successfully")
+                
+                next_page = request.args.get('next')
+                if next_page and urlparse(next_page).netloc == '':
+                    return redirect(next_page)
+                
+                flash(f'Welcome back, {admin_user.username}!', 'success')
+                return redirect(url_for('admin_dashboard.index'))
+            
+            # Fall back to instructor login
             success, message, instructor, is_first_time = AuthService.login(
                 identifier, password, remember_me
             )

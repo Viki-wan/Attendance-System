@@ -1,0 +1,101 @@
+<nav class="navbar navbar-expand-lg navbar-custom sticky-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('admin_dashboard.index') }}">
+            <i class="bi bi-camera-video"></i>
+            <span>Attendance System <small class="fw-normal">Admin</small></span>
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                style="border-color: rgba(255,255,255,0.3);">
+            <span class="navbar-toggler-icon" style="filter: invert(1);"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <!-- Left Navigation Items -->
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint and 'admin_dashboard' in request.endpoint %}active{% endif %}"
+                       href="{{ url_for('admin_dashboard.index') }}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint and 'admin_lecturers' in request.endpoint %}active{% endif %}"
+                       href="{{ url_for('admin_lecturers.index') }}">
+                        <i class="bi bi-person-badge"></i> Lecturers
+                    </a>
+                </li>
+
+                <!-- Settings stays a disabled placeholder until its blueprint exists
+                     (a link to an unregistered blueprint raises BuildError on every admin page). -->
+                <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and 'admin_students' in request.endpoint %}active{% endif %}"
+                           href="{{ url_for('admin_students.index') }}">
+                            <i class="bi bi-people"></i> Students
+                        </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint and 'admin_courses' in request.endpoint %}active{% endif %}"
+                       href="{{ url_for('admin_courses.index') }}">
+                        <i class="bi bi-journal-bookmark"></i> Courses
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint and 'admin_timetable' in request.endpoint %}active{% endif %}"
+                       href="{{ url_for('admin_timetable.index') }}">
+                        <i class="bi bi-calendar-week"></i> Timetable
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint and 'admin_sessions' in request.endpoint %}active{% endif %}"
+                       href="{{ url_for('admin_sessions.index') }}">
+                        <i class="bi bi-calendar-check"></i> Sessions
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint and 'admin_attendance' in request.endpoint %}active{% endif %}"
+                       href="{{ url_for('admin_attendance.index') }}">
+                        <i class="bi bi-file-earmark-bar-graph"></i> Attendance
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint and 'admin_settings' in request.endpoint %}active{% endif %}"
+                       href="{{ url_for('admin_settings.index') }}">
+                        <i class="bi bi-gear"></i> Settings
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Right Navigation Items -->
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item dropdown">
+                    <a class="nav-link p-0" href="#" id="adminUserDropdown" role="button"
+                       data-bs-toggle="dropdown">
+                        <div class="user-profile">
+                            <div class="user-avatar">
+                                {{ current_user.username[0]|upper if current_user.username else 'A' }}
+                            </div>
+                            <span class="d-none d-md-inline text-white">
+                                {{ current_user.username }}
+                            </span>
+                            <i class="bi bi-chevron-down text-white"></i>
+                        </div>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminUserDropdown">
+                        <li class="dropdown-header">
+                            <strong>{{ current_user.username }}</strong><br>
+                            <small class="text-muted">Administrator</small>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

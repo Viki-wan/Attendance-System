@@ -3,8 +3,15 @@ class ProgressTracker {
         this.sessionId = sessionId;
         this.socket = io();
         this.chart = null;
-        this.initializeChart();
+        
+        // Delayed initialization to ensure DOM is ready
+        setTimeout(() => {
+            this.initializeChart();
+        }, 100);
+        
         this.initializeSocketHandlers();
+        
+        console.log('✅ ProgressTracker initialized');
     }
 
     initializeSocketHandlers() {
@@ -18,10 +25,27 @@ class ProgressTracker {
             this.animateCounter(data.status);
             this.addTimelineEvent(data);
         });
+        
+        this.socket.on('session_stats', (data) => {
+            this.updateAllMetrics(data);
+        });
     }
 
     initializeChart() {
-        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        const canvas = document.getElementById('attendanceChart');
+        
+        // Only initialize if canvas exists
+        if (!canvas) {
+            console.log('Chart canvas not found - skipping chart initialization');
+            return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        
+        if (typeof Chart === 'undefined') {
+            console.log('Chart.js not loaded - skipping chart initialization');
+            return;
+        }
         
         this.chart = new Chart(ctx, {
             type: 'doughnut',
@@ -68,20 +92,42 @@ class ProgressTracker {
                 }
             }
         });
+        
+        console.log('✅ Chart initialized');
     }
 
     updateAllMetrics(data) {
+        if (!data) return;
+        
         // Update counters
         this.updateCounter('present-count', data.present || 0);
         this.updateCounter('late-count', data.late || 0);
         this.updateCounter('absent-count', data.absent || 0);
         
+        // Update marked and pending counts
+        const marked = (data.present || 0) + (data.late || 0);
+        const total = data.total_expected || 0;
+        const pending = total - marked;
+        
+        this.updateCounter('marked-count', marked);
+        this.updateCounter('pending-count', pending);
+        this.updateCounter('total-count', total);
+        
         // Update progress bar
-        this.updateProgressBar(data.attendance_rate || 0);
+        const attendanceRate = data.attendance_rate || 0;
+        this.updateProgressBar(attendanceRate);
         
         // Update percentage text
-        document.getElementById('attendance-percentage').textContent = 
-            `${(data.attendance_rate || 0).toFixed(1)}%`;
+        const percentageElement = document.getElementById('attendance-percentage');
+        if (percentageElement) {
+            percentageElement.textContent = attendanceRate.toFixed(1);
+        }
+        
+        // Update progress text
+        const progressText = document.getElementById('progress-text');
+        if (progressText) {
+            progressText.textContent = `${marked}/${total}`;
+        }
     }
 
     updateCounter(elementId, newValue) {
@@ -96,6 +142,8 @@ class ProgressTracker {
     }
 
     animateValue(element, start, end, duration) {
+        if (!element) return;
+        
         const range = end - start;
         const increment = range / (duration / 16);
         let current = start;
@@ -166,17 +214,25 @@ class ProgressTracker {
         const timeline = document.getElementById('attendance-timeline');
         if (!timeline) return;
         
+        // Remove empty state if exists
+        const emptyState = timeline.querySelector('.empty-state');
+        if (emptyState) {
+            emptyState.remove();
+        }
+        
         const event = document.createElement('div');
         event.className = 'timeline-event fade-in';
         event.innerHTML = `
-            <div class="timeline-time">${new Date().toLocaleTimeString()}</div>
-            <div class="timeline-content">
-                <strong>${data.student_name}</strong> marked as 
-                <span class="badge bg-${
-                    data.status === 'Present' ? 'success' : 
-                    data.status === 'Late' ? 'warning' : 
-                    'secondary'
-                }">${data.status}</span>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>${data.student_name}</strong> marked as 
+                    <span class="badge bg-${
+                        data.status === 'Present' ? 'success' : 
+                        data.status === 'Late' ? 'warning' : 
+                        'secondary'
+                    }">${data.status}</span>
+                </div>
+                <small class="text-muted">${new Date().toLocaleTimeString()}</small>
             </div>
         `;
         
@@ -190,21 +246,38 @@ class ProgressTracker {
 
     updateTimeline(data) {
         // Update session duration
-        const startTime = new Date(data.session_start_time);
-        const now = new Date();
-        const duration = Math.floor((now - startTime) / 1000 / 60);
+        if (data.session_start_time) {
+            const startTime = new Date(data.session_start_time);
+            const now = new Date();
+            const duration = Math.floor((now - startTime) / 1000 / 60);
+            
+            const durationElement = document.getElementById('session-duration');
+            if (durationElement) {
+                durationElement.textContent = `${duration} minutes`;
+            }
+        }
+    }
+    
+    /**
+     * Manually refresh statistics from server
+     */
+    async refresh() {
+        if (!this.sessionId) return;
         
-        const durationElement = document.getElementById('session-duration');
-        if (durationElement) {
-            durationElement.textContent = `${duration} minutes`;
+        try {
+            // Correct URL pattern: /lecturer/attendance/<session_id>/sync
+            const response = await fetch(`/lecturer/attendance/${this.sessionId}/sync`);
+            const data = await response.json();
+            
+            if (data.success && data.stats) {
+                this.updateAllMetrics(data.stats);
+            }
+        } catch (error) {
+            console.error('Failed to refresh statistics:', error);
         }
     }
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    const sessionId = document.getElementById('session-id')?.value;
-    if (sessionId) {
-        window.progressTracker = new ProgressTracker(sessionId);
-    }
-});
+// DO NOT auto-initialize - let live_attendance.html do it
+window.ProgressTracker = ProgressTracker;
+console.log('✅ ProgressTracker class loaded and exposed globally');

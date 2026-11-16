@@ -1,0 +1,12 @@
+{# Shared bits for the attendance pages #}
+{% macro rate(value, low) -%}
+    {%- if value is none -%}<span class="text-muted">&mdash;</span>
+    {%- else -%}<span class="{% if low %}text-danger fw-semibold{% endif %}">{{ '%.1f'|format(value) }}%</span>
+    {%- if low %} <i class="bi bi-exclamation-triangle-fill text-danger small" title="Below the low-attendance line"></i>{% endif %}
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro status_badge(status, badges) -%}
+    {%- if status -%}<span class="badge bg-{{ badges.get(status, 'secondary') }}{% if status == 'Late' %} text-dark{% endif %}">{{ status }}</span>
+    {%- else -%}<span class="badge bg-light text-dark border">No record</span>{%- endif -%}
+{%- endmacro %}

@@ -1,0 +1,117 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ ('Edit ' ~ class_obj.class_id) if class_obj else 'New Class' }} - Admin{% endblock %}
+
+{% block content %}
+{% set is_edit = class_obj is not none %}
+{% set fd = form_data or {} %}
+{% set cur_course = fd.get('course_code') or (class_obj.course_code if is_edit else '') %}
+{% set cur_year = (fd.get('year') or (class_obj.year if is_edit else 1))|string %}
+{% set cur_sem = (fd.get('semester') or (class_obj.semester if is_edit else 1))|string %}
+
+<div class="container mt-4" style="max-width: 700px;">
+    <div class="mb-4">
+        {% if is_edit %}
+        <a href="{{ url_for('admin_courses.class_view', class_id=class_obj.class_id) }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to {{ class_obj.class_id }}
+        </a>
+        {% elif cur_course %}
+        <a href="{{ url_for('admin_courses.view', course_code=cur_course) }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to {{ cur_course }}
+        </a>
+        {% else %}
+        <a href="{{ url_for('admin_courses.classes_index') }}" class="text-decoration-none text-muted">
+            <i class="bi bi-arrow-left"></i> Back to classes
+        </a>
+        {% endif %}
+        <h1 class="h3 mt-2">
+            <i class="bi bi-collection me-2"></i>{{ 'Edit Class' if is_edit else 'New Class' }}
+        </h1>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="mb-3">
+                    <label class="form-label">Class ID {% if not is_edit %}<span class="text-danger">*</span>{% endif %}</label>
+                    {% if is_edit %}
+                    <input type="text" class="form-control" value="{{ class_obj.class_id }}" disabled>
+                    <div class="form-text">Class ID cannot be changed.</div>
+                    {% else %}
+                    <input type="text" name="class_id" class="form-control" required maxlength="8"
+                           value="{{ fd.get('class_id', '') }}" placeholder="COMP 101" style="text-transform: uppercase;">
+                    <div class="form-text">2–4 letters then 3 digits, e.g. COMP 101. The first digit is the year (1–6).</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Class Name <span class="text-danger">*</span></label>
+                    <input type="text" name="class_name" class="form-control" required maxlength="200"
+                           value="{{ fd.get('class_name', class_obj.class_name if is_edit else '') }}">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Course <span class="text-danger">*</span></label>
+                    <select name="course_code" class="form-select" required>
+                        <option value="" disabled {% if not cur_course %}selected{% endif %}>Select a course…</option>
+                        {% for c in courses %}
+                        <option value="{{ c.course_code }}" {% if cur_course == c.course_code %}selected{% endif %}>
+                            {{ c.course_code }} — {{ c.course_name }}{% if not c.is_active %} (inactive){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="row g-3 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label">Year <span class="text-danger">*</span></label>
+                        <select name="year" id="yearSelect" class="form-select" required>
+                            {% for y in years %}
+                            <option value="{{ y }}" {% if cur_year == y|string %}selected{% endif %}>Year {{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Semester <span class="text-danger">*</span></label>
+                        <select name="semester" id="semesterSelect" class="form-select" required>
+                            {% for s in semesters %}
+                            <option value="{{ s }}" {% if cur_sem == s|string %}selected{% endif %}>
+                                Semester {{ s }}{% if s == 1 %} (Sep–Dec){% else %} (Jan–Apr){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <p class="text-muted small mb-4">
+                    Semester is campus-wide: every faculty runs the same calendar. Year level:
+                    <strong id="yearLevelLabel">—</strong>
+                </p>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> {{ 'Save Changes' if is_edit else 'Create Class' }}
+                    </button>
+                    <a href="{{ url_for('admin_courses.class_view', class_id=class_obj.class_id) if is_edit else url_for('admin_courses.classes_index') }}"
+                       class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var year = document.getElementById('yearSelect');
+    var sem = document.getElementById('semesterSelect');
+    var label = document.getElementById('yearLevelLabel');
+    function update() { label.textContent = year.value + '.' + sem.value; }
+    year.addEventListener('change', update);
+    sem.addEventListener('change', update);
+    update();
+})();
+</script>
+{% endblock %}

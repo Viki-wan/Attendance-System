@@ -124,6 +124,33 @@ class ClassSession(db.Model):
         delta = session_start - now
         return int(delta.total_seconds() / 60)
     
+    def get_duration(self):
+        """Get session duration in minutes (method for template compatibility)"""
+        return self.duration_minutes
+
+    def get_time_until_start(self):
+        """Get time until start as formatted string (method for template compatibility)"""
+        minutes = self.time_until_start  # Uses the property
+        if minutes <= 0:
+            return "Now"
+        elif minutes < 60:
+            return f"{minutes} min"
+        else:
+            hours = minutes // 60
+            mins = minutes % 60
+            if mins == 0:
+                return f"{hours}h"
+            return f"{hours}h {mins}m"
+
+    def can_start_now(self):
+        """Check if session can be started right now (wrapper for can_start property)"""
+        return self.can_start
+
+    def can_start_method(self):
+        """Method version of can_start property for explicit calling"""
+        return self.can_start
+
+    
     def to_dict(self, include_attendance=False):
         """
         Convert session to dictionary

@@ -1,0 +1,72 @@
+{# Compact list grouped by day. Needs entries, days_shown, grid, day_names, today. #}
+{% if entries %}
+<div class="d-flex justify-content-end gap-2 mb-2 small">
+    <a href="#" data-fold="all" class="text-decoration-none" onclick="return false;"><i class="bi bi-arrows-collapse"></i> Collapse all</a>
+    <a href="#" data-fold="none" class="text-decoration-none" onclick="return false;"><i class="bi bi-arrows-expand"></i> Expand all</a>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        <div class="tt-listwrap">
+            <table class="table table-sm table-hover align-middle mb-0 tt-list">
+                <thead>
+                    <tr>
+                        <th>Time</th><th>Class</th><th>Course</th><th>Y / S</th>
+                        <th>Lecturers</th><th>Valid</th><th>Status</th><th></th>
+                    </tr>
+                </thead>
+                {% for d in days_shown %}
+                {% if grid[d] %}
+                <tbody class="tt-day">
+                    <tr class="tt-dayrow table-light">
+                        <td colspan="8">
+                            <i class="bi bi-chevron-down tt-caret me-1"></i><strong>{{ day_names[d] }}</strong>
+                            <span class="badge bg-light text-dark border ms-1">{{ grid[d]|length }}</span>
+                        </td>
+                    </tr>
+                    {% for e in grid[d] %}
+                    <tr class="tt-row">
+                        <td>{{ e.start_time }}&ndash;{{ e.end_time }}</td>
+                        <td>
+                            <a href="{{ url_for('admin_courses.class_view', class_id=e.class_id) }}"
+                               class="text-decoration-none"><code>{{ e.class_id }}</code></a>
+                            <span class="tt-ell text-muted small" title="{{ e.class_name }}">{{ e.class_name }}</span>
+                        </td>
+                        <td>{{ e.course_code }}</td>
+                        <td>Y{{ e.year or '—' }} &middot; S{{ e.semester or '—' }}</td>
+                        <td>
+                            <span class="tt-ell">{% for l in e.lecturers %}{{ l.instructor_name }}{% if not loop.last %}, {% endif %}{% else %}<span class="text-muted">&mdash;</span>{% endfor %}</span>
+                        </td>
+                        <td class="small text-muted">
+                            {{ e.effective_from.strftime('%d %b %y') if e.effective_from else '—' }}
+                            &rarr;
+                            {{ e.effective_to.strftime('%d %b %y') if e.effective_to else 'open' }}
+                        </td>
+                        <td>
+                            {% if not e.is_active %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% elif e.effective_to and e.effective_to < today %}
+                                <span class="badge bg-warning text-dark">Expired</span>
+                            {% else %}
+                                <span class="badge bg-success">Active</span>
+                            {% endif %}
+                            {% if not e.class_active %}<span class="badge bg-secondary">Class inactive</span>{% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('admin_timetable.edit', entry_id=e.id) }}"
+                               class="btn btn-sm btn-link py-0" title="Edit"><i class="bi bi-pencil"></i></a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                {% endif %}
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-calendar-x" style="font-size: 2.5rem; opacity: 0.5;"></i>
+    <p class="mt-3 mb-0">No timetable entries match your filters.</p>
+</div></div>
+{% endif %}

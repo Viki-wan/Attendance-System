@@ -492,7 +492,7 @@ def quick_start_session(class_id):
         
         if existing_session:
             flash('Session already in progress', 'info')
-            return redirect(url_for('attendance.live_attendance', 
+            return redirect(url_for('lecturer_attendance.live_attendance', 
                                    session_id=existing_session.session_id))
         
         # Check if there's a scheduled session
@@ -517,7 +517,7 @@ def quick_start_session(class_id):
             
             logger.info(f'Started scheduled session {scheduled_session.session_id}')
             flash('Session started successfully', 'success')
-            return redirect(url_for('attendance.live_attendance', 
+            return redirect(url_for('lecturer_attendance.live_attendance', 
                                    session_id=scheduled_session.session_id))
         
         # Create new session with default times
@@ -551,7 +551,7 @@ def quick_start_session(class_id):
         
         logger.info(f'Created new quick-start session {new_session.session_id}')
         flash('New session started successfully', 'success')
-        return redirect(url_for('attendance.live_attendance', 
+        return redirect(url_for('lecturer_attendance.live_attendance', 
                                session_id=new_session.session_id))
     
     except Exception as e:

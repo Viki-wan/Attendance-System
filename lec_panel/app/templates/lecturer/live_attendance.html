@@ -176,6 +176,50 @@
         height: auto;
         max-height: 600px;
     }
+
+    #recognition-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+    
+    /* Camera Controls Overlay */
+    .camera-controls-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            z-index: 20;
+        }
+    /* Detection Stats Badge */
+    .detection-stats {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .detection-stats .stat-item {
+            display: inline-block;
+            margin-right: 15px;
+        }
+        
+        .detection-stats .stat-value {
+            font-weight: bold;
+            color: #28a745;
+        }
     
     /* Camera Status Badge */
     .camera-status-badge {
@@ -184,30 +228,67 @@
         right: 15px;
         z-index: 10;
     }
+
+
     
-    /* Face Detection Overlay */
-    .face-box {
-        position: absolute;
-        border: 3px solid #28a745;
-        border-radius: 5px;
-        box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
-        pointer-events: none;
-        animation: fadeIn 0.3s ease;
+    /* Overlay Controls */
+    .overlay-controls {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
     }
     
-    .face-label {
-        position: absolute;
-        bottom: -30px;
-        left: 0;
-        background: rgba(40, 167, 69, 0.9);
-        color: white;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 12px;
+    .overlay-controls .form-check {
+        display: inline-block;
+        margin-right: 20px;
+    }
+    
+    /* Recognition Status */
+    .recognition-status {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
         font-weight: 600;
-        white-space: nowrap;
+        transition: all 0.3s ease;
     }
     
+    .recognition-status.active {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        animation: pulse 2s infinite;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+    }
+    
+    .recognition-status.inactive {
+        background: #6c757d;
+        color: white;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.85; transform: scale(1.05); }
+    }
+    
+    /* Animation */
+    .counter-bump {
+        animation: bump 0.6s ease;
+    }
+    
+    @keyframes bump {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.3); color: #28a745; }
+    }
+    
+    .fade-in {
+        animation: fadeIn 0.5s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }    
     /* Toast Container */
     #toast-container {
         z-index: 11000;
@@ -277,28 +358,41 @@
         <!-- Left Column: Camera Feed & Stats -->
         <div class="col-lg-8 mb-4">
             <!-- Camera Card -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="bi bi-camera-video"></i> Camera Feed
-                        </h5>
-                        <div class="d-flex gap-2 align-items-center">
-                            <span id="recognition-status" class="recognition-status inactive">
-                                <i class="bi bi-circle-fill"></i> Recognition Stopped
-                            </span>
-                            <span class="badge bg-light text-dark" id="fps-counter">0 FPS</span>
+            <div class="col-lg-8 mb-4">
+                <!-- Camera Card -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-camera-video"></i> Camera Feed with Face Detection
+                            </h5>
+                            <div class="d-flex gap-2 align-items-center">
+                                <span id="recognition-status" class="recognition-status inactive">
+                                    <i class="bi bi-circle-fill"></i> Recognition Stopped
+                                </span>
+                                <span class="badge bg-light text-dark" id="fps-counter">0 FPS</span>
+                            </div>
                         </div>
                     </div>
-                </div>
                 
                 <div class="card-body p-0 position-relative camera-container">
                     <!-- Camera Canvas -->
                     <canvas id="camera-canvas" width="640" height="480"></canvas>
                     
                     <!-- Face Detection Overlay -->
-                    <div id="recognition-overlay" class="position-absolute top-0 start-0 w-100 h-100" 
-                         style="pointer-events: none;"></div>
+                    <div id="recognition-overlay"></div>
+                        
+                    <!-- Detection Stats Badge -->
+                    <div class="detection-stats">
+                        <div class="stat-item">
+                            <i class="bi bi-eye"></i>
+                            Detected: <span class="stat-value" id="detected-count">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="bi bi-person-check"></i>
+                            Recognized: <span class="stat-value" id="recognized-count">0</span>
+                        </div>
+                    </div>
                     
                     <!-- Camera Status Badge -->
                     <div class="camera-status-badge">
@@ -358,6 +452,62 @@
                 </div>
             </div>
 
+            <!-- Overlay Controls -->
+            <div class="overlay-controls">
+                <h6 class="mb-3">
+                    <i class="bi bi-sliders"></i> Overlay Settings
+                </h6>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="toggle-boxes" checked>
+                            <label class="form-check-label" for="toggle-boxes">
+                                Show Bounding Boxes
+                            </label>
+                        </div>
+                        
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="toggle-labels" checked>
+                            <label class="form-check-label" for="toggle-labels">
+                                Show Name Labels
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="toggle-confidence" checked>
+                            <label class="form-check-label" for="toggle-confidence">
+                                Show Confidence Scores
+                            </label>
+                        </div>
+                        
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="toggle-animation" checked>
+                            <label class="form-check-label" for="toggle-animation">
+                                Enable Animations
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <label class="form-label">Detection Color Scheme:</label>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <input type="radio" class="btn-check" name="color-scheme" id="color-default" checked>
+                        <label class="btn btn-outline-secondary" for="color-default">Default</label>
+                        
+                        <input type="radio" class="btn-check" name="color-scheme" id="color-neon">
+                        <label class="btn btn-outline-secondary" for="color-neon">Neon</label>
+                        
+                        <input type="radio" class="btn-check" name="color-scheme" id="color-minimal">
+                        <label class="btn btn-outline-secondary" for="color-minimal">Minimal</label>
+                    </div>
+                </div>
+            </div>
+
+
             <!-- Recent Recognitions Feed -->
             <div class="card shadow-sm mt-3">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
@@ -378,6 +528,35 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Right Column: Progress & Stats -->
+            <div class="col-lg-4">
+                <!-- Progress Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-bar-chart-fill text-primary"></i> Attendance Progress
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="progress mb-3" style="height: 35px;">
+                            <div id="attendance-progress-bar" 
+                                 class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" 
+                                 style="width: 0%"
+                                 aria-valuenow="0" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                                <strong id="progress-text">0/0</strong>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Attendance Rate:</span>
+                            <span class="fs-4 fw-bold text-success" id="attendance-percentage">0%</span>
+                        </div>
+                    </div>
+                </div>
 
             <!-- Attendance Timeline -->
             <div class="card shadow-sm mt-3">
@@ -669,64 +848,257 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <!-- Socket.IO -->
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
 <!-- Custom Scripts -->
 <script src="{{ url_for('static', filename='js/camera_handler.js') }}"></script>
+<script src="{{ url_for('static', filename='js/face_overlay_handler.js') }}"></script>
 <script src="{{ url_for('static', filename='js/attendance_realtime.js') }}"></script>
 <script src="{{ url_for('static', filename='js/progress_tracker.js') }}"></script>
+<!-- Diagnostic Script - Remove after fixing -->
+<script src="{{ url_for('static', filename='js/diagnostics.js') }}"></script>
 
 <script>
 // Global variables
+window.cameraHandler = null;
+window.attendanceHandler = null;
+window.progressTracker = null;
+window.overlayHandler = null;
+window.recognitionActive = false;
+window.sessionStartTime = new Date();
+
 const SESSION_ID = {{ session.session_id }};
 const USER_ID = '{{ current_user.instructor_id }}';
 const CLASS_ID = '{{ session.class_id }}';
-
-let cameraHandler;
-let attendanceHandler;
-let progressTracker;
-let recognitionActive = false;
-let sessionStartTime = new Date();
-
-// Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', function() {
-    initializeComponents();
-    initializeEventListeners();
-    startSessionTimer();
-});
-
-// ========== Initialization ==========
-
-function initializeComponents() {
-    // Initialize camera handler
-    cameraHandler = new CameraHandler('camera-canvas', {
-        width: 640,
-        height: 480,
-        fps: 10
+// ========== Wait for all scripts to load ==========
+function waitForScripts() {
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 50; // 5 seconds max
+        
+        const check = () => {
+            attempts++;
+            
+            console.log(`Checking scripts... Attempt ${attempts}/${maxAttempts}`);
+            console.log('CameraHandler:', typeof CameraHandler);
+            console.log('AttendanceRealtimeHandler:', typeof AttendanceRealtimeHandler);
+            console.log('ProgressTracker:', typeof ProgressTracker);
+            console.log('io (Socket.IO):', typeof io);
+            
+            if (typeof CameraHandler !== 'undefined' && 
+                typeof AttendanceRealtimeHandler !== 'undefined' &&
+                typeof ProgressTracker !== 'undefined' &&
+                typeof io !== 'undefined') {
+                console.log('✅ All scripts loaded successfully!');
+                resolve();
+            } else if (attempts >= maxAttempts) {
+                const missing = [];
+                if (typeof CameraHandler === 'undefined') missing.push('CameraHandler');
+                if (typeof AttendanceRealtimeHandler === 'undefined') missing.push('AttendanceRealtimeHandler');
+                if (typeof ProgressTracker === 'undefined') missing.push('ProgressTracker');
+                if (typeof io === 'undefined') missing.push('Socket.IO');
+                
+                reject(new Error(`Scripts failed to load: ${missing.join(', ')}`));
+            } else {
+                setTimeout(check, 100);
+            }
+        };
+        check();
     });
+}
+
+// ========== SVG Avatar Generator ==========
+
+function getDefaultAvatar(name) {
+    const initial = name ? name.trim()[0].toUpperCase() : '?';
+    const colors = [
+        '#007bff', '#28a745', '#dc3545', '#ffc107', 
+        '#17a2b8', '#6610f2', '#e83e8c', '#fd7e14',
+        '#6f42c1', '#20c997', '#fd7e14', '#6c757d'
+    ];
     
-    // Initialize real-time attendance handler (from attendance_realtime.js)
-    if (typeof AttendanceRealtimeHandler !== 'undefined') {
-        attendanceHandler = new AttendanceRealtimeHandler(SESSION_ID, USER_ID);
+    // Generate consistent color based on name
+    let colorIndex = 0;
+    if (name) {
+        for (let i = 0; i < name.length; i++) {
+            colorIndex += name.charCodeAt(i);
+        }
     }
+    const color = colors[colorIndex % colors.length];
     
-    // Initialize progress tracker (from progress_tracker.js)
-    if (typeof ProgressTracker !== 'undefined') {
-        progressTracker = new ProgressTracker(SESSION_ID);
+    const svg = `<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+        <rect width="200" height="200" fill="${color}"/>
+        <text x="100" y="100" font-size="80" fill="white" 
+              text-anchor="middle" dominant-baseline="central" 
+              font-family="Arial, sans-serif" font-weight="bold">
+            ${initial}
+        </text>
+    </svg>`;
+    
+    return 'data:image/svg+xml;base64,' + btoa(svg);
+}
+
+function fixImageError(img, name) {
+    if (img && !img.dataset.fixed) {
+        img.dataset.fixed = 'true';
+        img.src = getDefaultAvatar(name || 'User');
+        img.onerror = null;
     }
 }
 
+// ========== Initialization ==========
+
+async function initializeComponents() {
+    console.log('🚀 Starting component initialization...');
+    
+    try {
+        // 1. Check browser support
+        if (!CameraHandler.isSupported()) {
+            throw new Error('Your browser does not support camera access');
+        }
+        console.log('✅ Browser supports camera');
+        
+        // 2. Initialize CameraHandler
+        console.log('Initializing CameraHandler...');
+        const canvas = document.getElementById('camera-canvas');
+        if (!canvas) {
+            throw new Error('Canvas element not found');
+        }
+        
+        window.cameraHandler = new CameraHandler('camera-canvas', {
+            width: 640,
+            height: 480,
+            fps: 10
+        });
+        console.log('✅ CameraHandler initialized:', window.cameraHandler);
+        
+        // 3. Initialize AttendanceRealtimeHandler
+        console.log('Initializing AttendanceRealtimeHandler...');
+        window.attendanceHandler = new AttendanceRealtimeHandler(SESSION_ID, USER_ID);
+        console.log('✅ AttendanceRealtimeHandler initialized:', window.attendanceHandler);
+        
+        // 4. Initialize ProgressTracker
+        console.log('Initializing ProgressTracker...');
+        window.progressTracker = new ProgressTracker(SESSION_ID);
+        console.log('✅ ProgressTracker initialized:', window.progressTracker);
+        
+        // 5. Verify all instances exist
+        if (!window.cameraHandler) throw new Error('CameraHandler instance not created');
+        if (!window.attendanceHandler) throw new Error('AttendanceRealtimeHandler instance not created');
+        if (!window.progressTracker) throw new Error('ProgressTracker instance not created');
+        
+        console.log('✅ All components initialized successfully!');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Component initialization error:', error);
+        showToast('Initialization failed: ' + error.message, 'error');
+        throw error;
+    }
+}
+
+// ========== Initialize after DOM and scripts are ready ==========
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('📄 DOM loaded, starting initialization...');
+    console.log('Session ID:', SESSION_ID);
+    console.log('User ID:', USER_ID);
+    console.log('Class ID:', CLASS_ID);
+    
+    try {
+        // Step 1: Wait for all scripts to load
+        console.log('⏳ Waiting for scripts to load...');
+        await waitForScripts();
+        
+        // Step 2: Initialize components
+        console.log('⏳ Initializing components...');
+        await initializeComponents();
+        
+        // Step 3: Initialize event listeners
+        console.log('⏳ Setting up event listeners...');
+        initializeEventListeners();
+        
+        // Step 4: Start session timer
+        startSessionTimer();
+        
+        // Step 5: Fix avatars
+        fixAllAvatars();
+        
+        // Step 6: Show success message
+        console.log('✅✅✅ INITIALIZATION COMPLETE ✅✅✅');
+        showToast('System initialized successfully', 'success');
+        
+        // Step 7: Update diagnostics if available
+        if (typeof updateDiagnosticContent === 'function') {
+            setTimeout(updateDiagnosticContent, 500);
+        }
+        
+    } catch (error) {
+        console.error('❌❌❌ INITIALIZATION FAILED ❌❌❌');
+        console.error('Error:', error);
+        showToast('Failed to initialize system: ' + error.message, 'error');
+        
+        // Show detailed error info
+        const errorDetails = document.createElement('div');
+        errorDetails.className = 'alert alert-danger mt-3';
+        errorDetails.innerHTML = `
+            <h5><i class="bi bi-exclamation-triangle-fill"></i> Initialization Error</h5>
+            <p><strong>Error:</strong> ${error.message}</p>
+            <p><strong>Please check:</strong></p>
+            <ul>
+                <li>All JavaScript files are loaded correctly</li>
+                <li>Browser console for detailed error messages</li>
+                <li>Network tab for failed script loads</li>
+            </ul>
+            <button class="btn btn-primary" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise"></i> Reload Page
+            </button>
+        `;
+        document.querySelector('.container-fluid').insertBefore(
+            errorDetails, 
+            document.querySelector('.container-fluid').firstChild
+        );
+    }
+});
+
+// ========== Fix All Existing Avatars ==========
+
+function fixAllAvatars() {
+    // Fix student list avatars
+    document.querySelectorAll('.student-item img').forEach(img => {
+        const studentName = img.closest('.student-item')
+            ?.querySelector('.student-name')?.textContent || 'Student';
+        
+        // Check if image src is empty, default, or will fail
+        if (!img.src || img.src.includes('default-avatar.png') || img.src.endsWith('/')) {
+            fixImageError(img, studentName);
+        } else {
+            // Add error handler for future failures
+            img.addEventListener('error', function() {
+                fixImageError(this, studentName);
+            });
+        }
+    });
+}
+
+
+
 function initializeEventListeners() {
     // Camera controls
-    document.getElementById('start-camera-btn').addEventListener('click', startCamera);
-    document.getElementById('stop-camera-btn').addEventListener('click', stopCamera);
-    document.getElementById('switch-camera-btn').addEventListener('click', switchCamera);
-    document.getElementById('snapshot-btn').addEventListener('click', takeSnapshot);
+    const startBtn = document.getElementById('start-camera-btn');
+    const stopBtn = document.getElementById('stop-camera-btn');
+    const switchBtn = document.getElementById('switch-camera-btn');
+    const snapshotBtn = document.getElementById('snapshot-btn');
+    
+    if (startBtn) startBtn.addEventListener('click', startCamera);
+    if (stopBtn) stopBtn.addEventListener('click', stopCamera);
+    if (switchBtn) switchBtn.addEventListener('click', switchCamera);
+    if (snapshotBtn) snapshotBtn.addEventListener('click', takeSnapshot);
     
     // Student search
-    document.getElementById('student-search').addEventListener('input', filterStudents);
+    const searchInput = document.getElementById('student-search');
+    if (searchInput) searchInput.addEventListener('input', filterStudents);
     
     // Filter buttons
     document.querySelectorAll('[data-filter]').forEach(btn => {
@@ -739,39 +1111,49 @@ function initializeEventListeners() {
     });
     
     // Bulk actions
-    document.getElementById('mark-all-present-btn').addEventListener('click', markAllPresent);
-    document.getElementById('mark-unmarked-absent-btn').addEventListener('click', markUnmarkedAbsent);
+    const markAllPresentBtn = document.getElementById('mark-all-present-btn');
+    const markUnmarkedAbsentBtn = document.getElementById('mark-unmarked-absent-btn');
+    
+    if (markAllPresentBtn) markAllPresentBtn.addEventListener('click', markAllPresent);
+    if (markUnmarkedAbsentBtn) markUnmarkedAbsentBtn.addEventListener('click', markUnmarkedAbsent);
     
     // Other actions
-    document.getElementById('sync-btn').addEventListener('click', syncData);
-    document.getElementById('end-session-btn').addEventListener('click', showEndSessionModal);
-    document.getElementById('export-csv-btn').addEventListener('click', exportCSV);
-    // ========== CONTINUATION OF live_attendance.html <script> section ==========
-
-    // Clear recognitions feed
-    document.getElementById('clear-feed-btn').addEventListener('click', clearRecognitionsFeed);
+    const syncBtn = document.getElementById('sync-btn');
+    const endSessionBtn = document.getElementById('end-session-btn');
+    const exportBtn = document.getElementById('export-csv-btn');
+    const clearFeedBtn = document.getElementById('clear-feed-btn');
+    const endSessionForm = document.getElementById('end-session-form');
     
-    // End session
-    document.getElementById('end-session-form').addEventListener('submit', handleEndSession);
+    if (syncBtn) syncBtn.addEventListener('click', syncData);
+    if (endSessionBtn) endSessionBtn.addEventListener('click', showEndSessionModal);
+    if (exportBtn) exportBtn.addEventListener('click', exportCSV);
+    if (clearFeedBtn) clearFeedBtn.addEventListener('click', clearRecognitionsFeed);
+    if (endSessionForm) endSessionForm.addEventListener('submit', handleEndSession);
+    
+    console.log('âœ… Event listeners initialized');
 }
 
 // ========== Camera Functions ==========
 
 async function startCamera() {
+    const startBtn = document.getElementById('start-camera-btn');
+    const stopBtn = document.getElementById('stop-camera-btn');
+    
+    if (!cameraHandler) {
+        showToast('Camera handler not initialized', 'error');
+        return;
+    }
+    
     try {
-        const startBtn = document.getElementById('start-camera-btn');
-        const stopBtn = document.getElementById('stop-camera-btn');
-        
         startBtn.disabled = true;
+        startBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
         updateCameraStatus('Initializing...', 'warning');
         
         await cameraHandler.start();
         
-        // Toggle buttons
         startBtn.style.display = 'none';
         stopBtn.style.display = 'inline-block';
         
-        // Start recognition
         startRecognition();
         
         updateCameraStatus('Active', 'success');
@@ -781,19 +1163,25 @@ async function startCamera() {
         console.error('Failed to start camera:', error);
         showToast('Failed to start camera: ' + error.message, 'error');
         updateCameraStatus('Error', 'danger');
-        document.getElementById('start-camera-btn').disabled = false;
+        startBtn.disabled = false;
+        startBtn.innerHTML = '<i class="bi bi-play-fill"></i> Start Camera';
     }
 }
 
+
 function stopCamera() {
+    const startBtn = document.getElementById('start-camera-btn');
+    const stopBtn = document.getElementById('stop-camera-btn');
+    
+    if (!cameraHandler) return;
+    
     try {
         cameraHandler.stop();
         stopRecognition();
         
-        // Toggle buttons
-        document.getElementById('start-camera-btn').style.display = 'inline-block';
-        document.getElementById('stop-camera-btn').style.display = 'none';
-        document.getElementById('start-camera-btn').disabled = false;
+        startBtn.style.display = 'inline-block';
+        stopBtn.style.display = 'none';
+        startBtn.disabled = false;
         
         updateCameraStatus('Stopped', 'secondary');
         showToast('Camera stopped', 'info');
@@ -805,6 +1193,8 @@ function stopCamera() {
 }
 
 async function switchCamera() {
+    if (!cameraHandler) return;
+    
     try {
         await cameraHandler.switchCamera();
         showToast('Camera switched', 'success');
@@ -815,25 +1205,31 @@ async function switchCamera() {
 }
 
 function takeSnapshot() {
+    if (!cameraHandler) return;
+    
     try {
         const dataUrl = cameraHandler.captureFrame();
+        if (!dataUrl) {
+            showToast('No frame to capture', 'warning');
+            return;
+        }
         
-        // Create download link
         const link = document.createElement('a');
         link.href = dataUrl;
         link.download = `snapshot_${Date.now()}.png`;
         link.click();
-        
         showToast('Snapshot saved', 'success');
-        
     } catch (error) {
         console.error('Failed to take snapshot:', error);
         showToast('Failed to take snapshot: ' + error.message, 'error');
     }
 }
 
+
 function updateCameraStatus(status, type) {
     const statusBadge = document.getElementById('camera-status');
+    if (!statusBadge) return;
+    
     const iconClass = type === 'success' ? 'text-success' : 
                      type === 'warning' ? 'text-warning' : 
                      type === 'danger' ? 'text-danger' : 'text-secondary';
@@ -848,11 +1244,12 @@ function startRecognition() {
     
     recognitionActive = true;
     const statusBadge = document.getElementById('recognition-status');
-    statusBadge.classList.remove('inactive');
-    statusBadge.classList.add('active');
-    statusBadge.innerHTML = '<i class="bi bi-circle-fill"></i> Recognition Active';
+    if (statusBadge) {
+        statusBadge.classList.remove('inactive');
+        statusBadge.classList.add('active');
+        statusBadge.innerHTML = '<i class="bi bi-circle-fill"></i> Recognition Active';
+    }
     
-    // Start sending frames for recognition
     if (attendanceHandler) {
         attendanceHandler.startRecognition();
     }
@@ -865,11 +1262,12 @@ function stopRecognition() {
     
     recognitionActive = false;
     const statusBadge = document.getElementById('recognition-status');
-    statusBadge.classList.remove('active');
-    statusBadge.classList.add('inactive');
-    statusBadge.innerHTML = '<i class="bi bi-circle-fill"></i> Recognition Stopped';
+    if (statusBadge) {
+        statusBadge.classList.remove('active');
+        statusBadge.classList.add('inactive');
+        statusBadge.innerHTML = '<i class="bi bi-circle-fill"></i> Recognition Stopped';
+    }
     
-    // Stop sending frames
     if (attendanceHandler) {
         attendanceHandler.stopRecognition();
     }
@@ -887,7 +1285,6 @@ function filterStudents() {
     students.forEach(student => {
         const name = student.dataset.name || '';
         const studentId = student.querySelector('.student-id')?.textContent.toLowerCase() || '';
-        
         const matches = name.includes(searchTerm) || studentId.includes(searchTerm);
         
         if (matches) {
@@ -898,7 +1295,6 @@ function filterStudents() {
         }
     });
     
-    // Update count
     document.getElementById('student-count').textContent = visibleCount;
 }
 
@@ -935,9 +1331,7 @@ async function handleManualMark(event) {
         
         const response = await fetch(`/lecturer/attendance/mark/${SESSION_ID}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 student_id: studentId,
                 status: status,
@@ -950,8 +1344,6 @@ async function handleManualMark(event) {
         if (data.success) {
             updateStudentStatus(studentId, status);
             showToast(`${data.student_name} marked as ${status}`, 'success');
-            
-            // Add to timeline
             addTimelineEvent(data.student_name, status, 'manual');
         } else {
             showToast(data.message || 'Failed to mark attendance', 'error');
@@ -961,7 +1353,6 @@ async function handleManualMark(event) {
         console.error('Error marking attendance:', error);
         showToast('Failed to mark attendance', 'error');
     } finally {
-        // Restore button
         const iconClass = status === 'Present' ? 'check-lg' : 
                          status === 'Late' ? 'clock' : 'x-lg';
         button.innerHTML = `<i class="bi bi-${iconClass}"></i>`;
@@ -973,10 +1364,8 @@ function updateStudentStatus(studentId, status) {
     const studentItem = document.querySelector(`[data-student-id="${studentId}"]`);
     if (!studentItem) return;
     
-    // Update dataset
     studentItem.dataset.status = status;
     
-    // Update badge
     const badge = studentItem.querySelector('.status-badge');
     badge.className = 'badge status-badge mb-2';
     
@@ -992,8 +1381,6 @@ function updateStudentStatus(studentId, status) {
     }
     
     badge.textContent = status;
-    
-    // Add animation
     studentItem.classList.add('fade-in');
     setTimeout(() => studentItem.classList.remove('fade-in'), 500);
 }
@@ -1001,40 +1388,26 @@ function updateStudentStatus(studentId, status) {
 // ========== Bulk Actions ==========
 
 async function markAllPresent() {
-    if (!confirm('Are you sure you want to mark all students as Present?')) {
-        return;
-    }
+    if (!confirm('Are you sure you want to mark all students as Present?')) return;
     
     try {
         const response = await fetch(`/lecturer/attendance/bulk-mark/${SESSION_ID}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                status: 'Present',
-                method: 'bulk_manual'
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'Present', method: 'bulk_manual' })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            // Update all student statuses
             document.querySelectorAll('.student-item').forEach(item => {
                 updateStudentStatus(item.dataset.studentId, 'Present');
             });
-            
             showToast(`${data.count} students marked as Present`, 'success');
-            
-            // Refresh stats
-            if (progressTracker) {
-                progressTracker.refresh();
-            }
+            if (progressTracker) progressTracker.refresh();
         } else {
             showToast(data.message || 'Failed to mark all present', 'error');
         }
-        
     } catch (error) {
         console.error('Error marking all present:', error);
         showToast('Failed to mark all present', 'error');
@@ -1042,35 +1415,25 @@ async function markAllPresent() {
 }
 
 async function markUnmarkedAbsent() {
-    if (!confirm('Mark all unmarked students as Absent?')) {
-        return;
-    }
+    if (!confirm('Mark all unmarked students as Absent?')) return;
     
     try {
         const response = await fetch(`/lecturer/attendance/mark-unmarked-absent/${SESSION_ID}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
+            headers: { 'Content-Type': 'application/json' }
         });
         
         const data = await response.json();
         
         if (data.success) {
-            // Update unmarked students
             document.querySelectorAll('.student-item[data-status="Absent"]').forEach(item => {
                 updateStudentStatus(item.dataset.studentId, 'Absent');
             });
-            
             showToast(`${data.count} students marked as Absent`, 'info');
-            
-            if (progressTracker) {
-                progressTracker.refresh();
-            }
+            if (progressTracker) progressTracker.refresh();
         } else {
             showToast(data.message || 'Failed to mark unmarked absent', 'error');
         }
-        
     } catch (error) {
         console.error('Error marking unmarked absent:', error);
         showToast('Failed to mark unmarked absent', 'error');
@@ -1082,18 +1445,13 @@ async function markUnmarkedAbsent() {
 function addTimelineEvent(studentName, status, method) {
     const timeline = document.getElementById('attendance-timeline');
     const emptyState = timeline.querySelector('.empty-state');
-    
-    // Remove empty state if exists
-    if (emptyState) {
-        emptyState.remove();
-    }
+    if (emptyState) emptyState.remove();
     
     const event = document.createElement('div');
     event.className = 'timeline-event slide-in';
     
     const time = new Date().toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+        hour: '2-digit', minute: '2-digit' 
     });
     
     const methodBadge = method === 'face_recognition' 
@@ -1114,14 +1472,10 @@ function addTimelineEvent(studentName, status, method) {
         </div>
     `;
     
-    // Insert at top
     timeline.insertBefore(event, timeline.firstChild);
     
-    // Limit to 50 events
     const events = timeline.querySelectorAll('.timeline-event');
-    if (events.length > 50) {
-        events[events.length - 1].remove();
-    }
+    if (events.length > 50) events[events.length - 1].remove();
 }
 
 function clearRecognitionsFeed() {
@@ -1144,23 +1498,17 @@ async function syncData() {
         syncBtn.disabled = true;
         syncBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Syncing...';
         
-        const response = await fetch(`/lecturer/attendance/sync/${SESSION_ID}`);
+        // Correct URL pattern: /lecturer/attendance/<session_id>/sync
+        const response = await fetch(`/lecturer/attendance/${SESSION_ID}/sync`);
         const data = await response.json();
         
         if (data.success) {
             showToast('Data synchronized successfully', 'success');
-            
-            // Refresh progress tracker
-            if (progressTracker) {
-                progressTracker.refresh();
-            }
-            
-            // Update stats
+            if (progressTracker) progressTracker.refresh();
             updateStats(data.stats);
         } else {
             showToast('Failed to sync data', 'error');
         }
-        
     } catch (error) {
         console.error('Sync error:', error);
         showToast('Failed to sync data', 'error');
@@ -1184,12 +1532,10 @@ async function exportCSV() {
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-            
             showToast('CSV exported successfully', 'success');
         } else {
             showToast('Failed to export CSV', 'error');
         }
-        
     } catch (error) {
         console.error('Export error:', error);
         showToast('Failed to export CSV', 'error');
@@ -1199,7 +1545,6 @@ async function exportCSV() {
 // ========== Session Management ==========
 
 function showEndSessionModal() {
-    // Update final stats in modal
     document.getElementById('final-present').textContent = 
         document.getElementById('present-count').textContent;
     document.getElementById('final-late').textContent = 
@@ -1224,17 +1569,10 @@ async function handleEndSession(event) {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Ending...';
         
-        // Stop camera and recognition first
-        if (recognitionActive) {
-            stopRecognition();
-        }
-        if (cameraHandler && cameraHandler.isActive()) {
-            stopCamera();
-        }
+        if (recognitionActive) stopRecognition();
+        if (cameraHandler && cameraHandler.isActive()) stopCamera();
         
-        // Submit form
         form.submit();
-        
     } catch (error) {
         console.error('Error ending session:', error);
         showToast('Failed to end session', 'error');
@@ -1245,21 +1583,19 @@ async function handleEndSession(event) {
 
 function startSessionTimer() {
     updateSessionDuration();
-    setInterval(updateSessionDuration, 60000); // Update every minute
+    setInterval(updateSessionDuration, 60000);
 }
 
 function updateSessionDuration() {
     const now = new Date();
     const diff = now - sessionStartTime;
     const minutes = Math.floor(diff / 60000);
-    
     document.getElementById('session-duration').textContent = `${minutes} minutes`;
 }
 
 // ========== Stats Update Functions ==========
 
 function updateStats(stats) {
-    // Update counters
     document.getElementById('present-count').textContent = stats.present;
     document.getElementById('late-count').textContent = stats.late;
     document.getElementById('absent-count').textContent = stats.absent;
@@ -1269,7 +1605,6 @@ function updateStats(stats) {
     document.getElementById('marked-count').textContent = marked;
     document.getElementById('pending-count').textContent = stats.absent;
     
-    // Update progress bar
     const percentage = stats.total_expected > 0 
         ? Math.round((marked / stats.total_expected) * 100) 
         : 0;
@@ -1281,7 +1616,6 @@ function updateStats(stats) {
     document.getElementById('progress-text').textContent = `${marked}/${stats.total_expected}`;
     document.getElementById('attendance-percentage').textContent = stats.attendance_rate;
     
-    // Animate counters
     document.getElementById('present-count').classList.add('counter-bump');
     setTimeout(() => {
         document.getElementById('present-count').classList.remove('counter-bump');
@@ -1292,6 +1626,8 @@ function updateStats(stats) {
 
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
+    
     const toast = document.createElement('div');
     
     const bgClass = type === 'success' ? 'bg-success' :
@@ -1334,31 +1670,22 @@ function showToast(message, type = 'info') {
 
 // ========== Event Listeners for Real-time Updates ==========
 
-// Listen for attendance updates from SocketIO
 if (typeof io !== 'undefined' && attendanceHandler) {
     attendanceHandler.on('attendance_marked', (data) => {
         updateStudentStatus(data.student_id, data.status);
         addTimelineEvent(data.student_name, data.status, data.method);
-        
-        // Add to recognition feed
         addRecognitionToFeed(data);
-        
-        // Update stats
         updateStats(data.stats);
-        
-        // Show notification
         showToast(`${data.student_name} marked as ${data.status}`, 'success');
     });
     
     attendanceHandler.on('student_recognized', (data) => {
-        // Highlight student in list
         const studentItem = document.querySelector(`[data-student-id="${data.student_id}"]`);
         if (studentItem) {
             studentItem.classList.add('fade-in');
             setTimeout(() => studentItem.classList.remove('fade-in'), 500);
         }
         
-        // Update recognized counter
         const recognizedCount = document.getElementById('recognized-count');
         recognizedCount.textContent = parseInt(recognizedCount.textContent) + 1;
         recognizedCount.classList.add('counter-bump');
@@ -1373,10 +1700,7 @@ if (typeof io !== 'undefined' && attendanceHandler) {
 function addRecognitionToFeed(data) {
     const feed = document.getElementById('recent-recognitions-feed');
     const emptyState = feed.querySelector('.empty-state');
-    
-    if (emptyState) {
-        emptyState.remove();
-    }
+    if (emptyState) emptyState.remove();
     
     const item = document.createElement('div');
     item.className = 'list-group-item recognition-item new slide-in';
@@ -1391,13 +1715,18 @@ function addRecognitionToFeed(data) {
         ? Math.round(data.confidence_score * 100) 
         : 0;
     
+    // Use SVG avatar if image path is missing or invalid
+    const imageSrc = data.image_path && data.image_path !== '' && !data.image_path.includes('default-avatar')
+        ? data.image_path 
+        : getDefaultAvatar(data.student_name);
+    
     item.innerHTML = `
         <div class="d-flex align-items-center">
-            <img src="${data.image_path || '/static/images/default-avatar.png'}" 
+            <img src="${imageSrc}" 
                  alt="${data.student_name}"
                  class="rounded-circle me-3"
                  style="width: 40px; height: 40px; object-fit: cover;"
-                 onerror="this.src='/static/images/default-avatar.png'">
+                 onerror="this.src='${getDefaultAvatar(data.student_name)}'; this.onerror=null;">
             <div class="flex-grow-1">
                 <strong>${data.student_name}</strong>
                 <div class="small text-muted">
@@ -1413,22 +1742,15 @@ function addRecognitionToFeed(data) {
     
     feed.insertBefore(item, feed.firstChild);
     
-    // Remove 'new' class after animation
-    setTimeout(() => {
-        item.classList.remove('new');
-    }, 2000);
+    setTimeout(() => item.classList.remove('new'), 2000);
     
-    // Limit to 20 items
     const items = feed.querySelectorAll('.recognition-item');
-    if (items.length > 20) {
-        items[items.length - 1].remove();
-    }
+    if (items.length > 20) items[items.length - 1].remove();
 }
 
 // ========== Keyboard Shortcuts ==========
 
 document.addEventListener('keydown', (e) => {
-    // Ctrl/Cmd + Space: Start/Stop camera
     if ((e.ctrlKey || e.metaKey) && e.code === 'Space') {
         e.preventDefault();
         const startBtn = document.getElementById('start-camera-btn');
@@ -1441,19 +1763,16 @@ document.addEventListener('keydown', (e) => {
         }
     }
     
-    // Ctrl/Cmd + S: Sync data
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         syncData();
     }
     
-    // Ctrl/Cmd + E: Export CSV
     if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
         e.preventDefault();
         exportCSV();
     }
     
-    // Esc: Stop recognition
     if (e.key === 'Escape' && recognitionActive) {
         stopRecognition();
     }
@@ -1470,27 +1789,19 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 window.addEventListener('unload', () => {
-    if (cameraHandler) {
-        cameraHandler.stop();
-    }
-    if (attendanceHandler) {
-        attendanceHandler.disconnect();
-    }
+    if (cameraHandler) cameraHandler.stop();
+    if (attendanceHandler) attendanceHandler.disconnect();
 });
 
-// ========== Auto-refresh Progress (Optional) ==========
+// ========== Auto-refresh Progress ==========
 
-// Auto-refresh stats every 30 seconds if enabled
-const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+const AUTO_REFRESH_INTERVAL = 30000;
 let autoRefreshTimer = null;
 
 function enableAutoRefresh() {
     if (autoRefreshTimer) return;
-    
     autoRefreshTimer = setInterval(async () => {
-        if (recognitionActive) {
-            await syncData();
-        }
+        if (recognitionActive) await syncData();
     }, AUTO_REFRESH_INTERVAL);
 }
 
@@ -1501,7 +1812,6 @@ function disableAutoRefresh() {
     }
 }
 
-// Enable auto-refresh when camera is active
 document.getElementById('start-camera-btn').addEventListener('click', () => {
     setTimeout(enableAutoRefresh, 1000);
 });
@@ -1510,7 +1820,29 @@ document.getElementById('stop-camera-btn').addEventListener('click', () => {
     disableAutoRefresh();
 });
 
-// ========== Initialize Performance Monitoring ==========
+// ========== Diagnostic Check ==========
+// Run this in console to verify everything loaded:
+window.diagnostics = function() {
+    console.log('=== DIAGNOSTICS ===');
+    console.log('CameraHandler:', typeof CameraHandler);
+    console.log('AttendanceRealtimeHandler:', typeof AttendanceRealtimeHandler);
+    console.log('ProgressTracker:', typeof ProgressTracker);
+    console.log('Socket.io:', typeof io);
+    console.log('cameraHandler instance:', cameraHandler);
+    console.log('attendanceHandler instance:', attendanceHandler);
+    console.log('progressTracker instance:', progressTracker);
+    console.log('Start button:', document.getElementById('start-camera-btn'));
+    console.log('==================');
+};
+
+// Auto-run diagnostics after 2 seconds
+setTimeout(() => {
+    if (typeof window.diagnostics === 'function') {
+        window.diagnostics();
+    }
+}, 2000);
+
+// ========== Performance Monitoring ==========
 
 let frameCount = 0;
 let lastFpsUpdate = Date.now();
@@ -1528,7 +1860,6 @@ function updateFPS() {
     }
 }
 
-// Call updateFPS on each frame if camera is active
 if (cameraHandler) {
     cameraHandler.onFrame = updateFPS;
 }

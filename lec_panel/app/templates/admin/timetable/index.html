@@ -1,0 +1,191 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Timetable - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ---------- filter bar ---------- */
+    .tt-filters .form-select, .tt-filters .form-control { min-width: 0; }
+
+    /* ---------- cohort cards ---------- */
+    .cohort-card { transition: box-shadow .15s ease, transform .15s ease; }
+    .cohort-card:hover { box-shadow: 0 .25rem .75rem rgba(0,0,0,.12); transform: translateY(-1px); }
+
+    /* ---------- weekly calendar ---------- */
+    .tt-cal { --tt-hour: 56px; min-width: 760px; }
+    .tt-head, .tt-body {
+        display: grid;
+        grid-template-columns: 52px repeat(var(--tt-days), minmax(0, 1fr));
+    }
+    .tt-head {
+        position: sticky; top: 60px; z-index: 3;
+        background: var(--bs-body-bg, #fff);
+        border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    }
+    .tt-dayhead { padding: .55rem .5rem; font-weight: 600; text-align: center;
+                  border-left: 1px solid var(--bs-border-color, #dee2e6); }
+    .tt-times > div { height: var(--tt-hour); padding: 2px 6px 0 0; text-align: right;
+                      font-size: .72rem; color: var(--bs-secondary-color, #6c757d); }
+    .tt-col {
+        position: relative; height: var(--tt-height);
+        border-left: 1px solid var(--bs-border-color, #dee2e6);
+        background-image: repeating-linear-gradient(
+            to bottom, transparent 0, transparent calc(var(--tt-hour) - 1px),
+            var(--bs-border-color, #dee2e6) calc(var(--tt-hour) - 1px), var(--bs-border-color, #dee2e6) var(--tt-hour));
+    }
+    .tt-event {
+        position: absolute; box-sizing: border-box; overflow: hidden;
+        padding: 3px 6px; border-radius: 5px; font-size: .78rem; line-height: 1.25;
+        text-decoration: none; color: #052c65; background: #e7f1ff;
+        border: 1px solid rgba(13,110,253,.25); border-left: 4px solid #0d6efd;
+        outline: 1px solid #fff;
+    }
+    .tt-event:hover { z-index: 5; color: #052c65; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    .tt-event.tt-clash { color: #58151c; background: #f8d7da;
+                         border-color: rgba(220,53,69,.35); border-left-color: #dc3545; }
+    .tt-event.tt-clash:hover { color: #58151c; }
+    .tt-event.tt-dim { opacity: .75; border-style: dashed; border-left-style: solid; }
+    .tt-ev-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tt-ev-time { font-weight: 400; opacity: .8; }
+    .tt-ev-lec { opacity: .75; font-size: .72rem; }
+    .tt-ev-warn { position: absolute; top: 3px; right: 4px; font-size: .7rem; color: #dc3545; }
+    .tt-swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 3px; vertical-align: -1px; margin-right: .3rem; }
+    @media (max-width: 991.98px) { .tt-scroll { overflow-x: auto; } }
+
+    /* ---------- list ---------- */
+    .tt-list thead th { position: sticky; top: 60px; z-index: 2; background: #f8f9fa; white-space: nowrap; }
+    .tt-list td { white-space: nowrap; }
+    .tt-ell { display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+    .tt-dayrow td { cursor: pointer; user-select: none; }
+    .tt-caret { display: inline-block; transition: transform .15s ease; }
+    .tt-day.collapsed .tt-caret { transform: rotate(-90deg); }
+    .tt-day.collapsed .tt-row { display: none; }
+    @media (max-width: 991.98px) { .tt-listwrap { overflow-x: auto; } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1400px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h1 class="h3 mb-0"><i class="bi bi-calendar-week me-2"></i>Campus Timetable</h1>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <div class="btn-group" role="group" aria-label="View">
+                <a href="{{ view_links.cohorts }}" class="btn btn-outline-secondary {% if view == 'cohorts' %}active{% endif %}">
+                    <i class="bi bi-grid"></i> Cohorts</a>
+                <a href="{{ view_links.week }}" class="btn btn-outline-secondary {% if view == 'week' %}active{% endif %}">
+                    <i class="bi bi-calendar3-week"></i> Week</a>
+                <a href="{{ view_links.list }}" class="btn btn-outline-secondary {% if view == 'list' %}active{% endif %}">
+                    <i class="bi bi-list-ul"></i> List</a>
+            </div>
+            <a href="{{ url_for('admin_timetable.create', class_id=class_id) if class_id else url_for('admin_timetable.create') }}"
+               class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> New Entry
+            </a>
+        </div>
+    </div>
+
+    {% set active_tab = 'timetable' %}
+    {% include 'admin/timetable/_nav.html' %}
+
+    <!-- Filters: one slim row, applied as soon as something changes -->
+    <form method="get" class="tt-filters mb-3">
+        {% if view_param %}<input type="hidden" name="view" value="{{ view_param }}">{% endif %}
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <select name="semester" class="form-select form-select-sm w-auto" aria-label="Semester" onchange="this.form.submit()">
+                <option value="all" {% if semester == 'all' %}selected{% endif %}>All semesters</option>
+                {% for s in semesters %}
+                <option value="{{ s }}" {% if semester == s %}selected{% endif %}>Semester {{ s }}</option>
+                {% endfor %}
+            </select>
+            <select name="course" class="form-select form-select-sm w-auto" aria-label="Course" onchange="this.form.submit()">
+                <option value="">All courses</option>
+                {% for c in courses %}
+                <option value="{{ c.course_code }}" {% if course == c.course_code %}selected{% endif %}>{{ c.course_code }}</option>
+                {% endfor %}
+            </select>
+            <select name="year" class="form-select form-select-sm w-auto" aria-label="Year" onchange="this.form.submit()">
+                <option value="">All years</option>
+                {% for y in years %}
+                <option value="{{ y }}" {% if year == y %}selected{% endif %}>Year {{ y }}</option>
+                {% endfor %}
+            </select>
+            <select name="instructor" class="form-select form-select-sm w-auto" style="max-width: 220px;" aria-label="Lecturer" onchange="this.form.submit()">
+                <option value="">All lecturers</option>
+                {% for i in instructors %}
+                <option value="{{ i.instructor_id }}" {% if instructor == i.instructor_id %}selected{% endif %}>{{ i.instructor_name }}</option>
+                {% endfor %}
+            </select>
+            <div class="input-group input-group-sm w-auto">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="search" name="class_id" class="form-control" style="width: 150px;"
+                       placeholder="Class, e.g. SCI 101" value="{{ class_id }}" aria-label="Class"
+                       onchange="this.form.submit()">
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#moreFilters">
+                <i class="bi bi-sliders"></i> More
+            </button>
+            {% if active_filters %}
+            <a href="{{ url_for('admin_timetable.index') }}" class="btn btn-sm btn-link">Clear</a>
+            {% endif %}
+        </div>
+        <div class="collapse {% if more_open %}show{% endif %} mt-2" id="moreFilters">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <select name="day" class="form-select form-select-sm w-auto" aria-label="Day" onchange="this.form.submit()">
+                    <option value="">Any day</option>
+                    {% for d, name in days %}
+                    <option value="{{ d }}" {% if day == d %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+                <select name="status" class="form-select form-select-sm w-auto" aria-label="Status" onchange="this.form.submit()">
+                    <option value="active" {% if status == 'active' %}selected{% endif %}>Active entries</option>
+                    <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>Inactive entries</option>
+                    <option value="all" {% if status == 'all' %}selected{% endif %}>All entries</option>
+                </select>
+            </div>
+        </div>
+    </form>
+
+    {% if hint %}
+    <div class="alert alert-info py-2"><i class="bi bi-info-circle me-1"></i>{{ hint }}</div>
+    {% endif %}
+
+    {% if view != 'cohorts' %}
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+        <a href="{{ url_for('admin_timetable.index', semester=semester) }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> All cohorts
+        </a>
+        <span class="fw-semibold">{{ scope_label }}</span>
+        <span class="text-muted small">{{ entries|length }} slot{{ '' if entries|length == 1 else 's' }}</span>
+    </div>
+    {% endif %}
+
+    {% if view == 'cohorts' %}
+        {% include 'admin/timetable/_cohorts.html' %}
+    {% elif view == 'week' %}
+        {% include 'admin/timetable/_week.html' %}
+    {% else %}
+        {% include 'admin/timetable/_list.html' %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // List view: click a day header to fold that day; the toolbar folds/unfolds all
+    document.querySelectorAll('.tt-dayrow').forEach(function (row) {
+        row.addEventListener('click', function () {
+            row.closest('.tt-day').classList.toggle('collapsed');
+        });
+    });
+    document.querySelectorAll('[data-fold]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var fold = btn.getAttribute('data-fold') === 'all';
+            document.querySelectorAll('.tt-day').forEach(function (d) { d.classList.toggle('collapsed', fold); });
+        });
+    });
+})();
+</script>
+{% endblock %}

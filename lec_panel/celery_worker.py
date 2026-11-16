@@ -6,6 +6,7 @@ For beat scheduler: celery -A celery_worker.celery beat --loglevel=info
 
 from celery.schedules import crontab
 from app import create_app, celery as celery_app
+from dotenv import load_dotenv
 
 # Create Flask app and push context
 app = create_app()

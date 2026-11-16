@@ -1,0 +1,169 @@
+{#
+    Webcam capture panel. Include INSIDE the <form> so the hidden
+    `captured_image` input (base64 JPEG data URL) is submitted with it.
+  
+    Context used: form_data (optional) -- when the page is re-rendered after a
+    blurry-photo warning, the previously captured photo is restored from here.
+  
+    Any element with a `data-face-retake` attribute acts as a "Retake photo"
+    button (used by the blurry-photo confirmation banner).
+  
+    camera_handler.js is loaded on demand, and only if CameraHandler isn't
+    already defined, so this is safe even if the base scripts partial already
+    ships it.
+  #}
+  {% set existing_image = (form_data or {}).get('captured_image', '') %}
+  
+  <div class="card h-100">
+      <div class="card-body">
+          <h5 class="mb-3"><i class="bi bi-camera me-2"></i>Face Photo</h5>
+  
+          <div id="cameraStage" class="position-relative bg-dark rounded overflow-hidden mx-auto"
+               style="max-width: 480px; aspect-ratio: 4 / 3;">
+              <canvas id="captureCanvas" style="width: 100%; height: 100%; display: block;"></canvas>
+              <img id="capturePreview" alt="Captured photo"
+                   class="position-absolute top-0 start-0 d-none"
+                   style="width: 100%; height: 100%; object-fit: cover;">
+              <div id="cameraPlaceholder"
+                   class="position-absolute top-50 start-50 translate-middle text-center text-white-50 px-3">
+                  <i class="bi bi-camera-video" style="font-size: 2.5rem;"></i>
+                  <div class="mt-2 small">Camera is off</div>
+              </div>
+          </div>
+  
+          <div id="cameraStatus" class="form-text text-center mt-2" aria-live="polite"></div>
+  
+          <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+              <button type="button" id="startCameraBtn" class="btn btn-outline-primary">
+                  <i class="bi bi-camera-video"></i> Start camera
+              </button>
+              <button type="button" id="captureBtn" class="btn btn-primary d-none">
+                  <i class="bi bi-record-circle"></i> Capture photo
+              </button>
+              <button type="button" id="retakeBtn" class="btn btn-outline-secondary d-none">
+                  <i class="bi bi-arrow-counterclockwise"></i> Retake
+              </button>
+          </div>
+  
+          <input type="hidden" name="captured_image" id="capturedImage" value="{{ existing_image }}">
+  
+          <ul class="text-muted small mt-4 mb-0 ps-3">
+              <li>Only the student should be in frame, facing the camera.</li>
+              <li>Use even lighting and hold still when capturing.</li>
+              <li>Remove sunglasses, masks, or anything covering the face.</li>
+          </ul>
+      </div>
+  </div>
+  
+  <script>
+  (function () {
+      var handler = null;
+      var CAMERA_JS = "{{ url_for('static', filename='js/camera_handler.js') }}";
+  
+      var canvas = document.getElementById('captureCanvas');
+      var preview = document.getElementById('capturePreview');
+      var placeholder = document.getElementById('cameraPlaceholder');
+      var statusEl = document.getElementById('cameraStatus');
+      var startBtn = document.getElementById('startCameraBtn');
+      var captureBtn = document.getElementById('captureBtn');
+      var retakeBtn = document.getElementById('retakeBtn');
+      var hidden = document.getElementById('capturedImage');
+  
+      function setStatus(text, cls) {
+          statusEl.textContent = text || '';
+          statusEl.className = 'form-text text-center mt-2 ' + (cls || '');
+      }
+  
+      function show(el, visible) { el.classList.toggle('d-none', !visible); }
+  
+      function setState(state) {
+          // state: 'off' | 'live' | 'captured'
+          show(startBtn, state === 'off');
+          show(captureBtn, state === 'live');
+          show(retakeBtn, state === 'captured');
+          show(preview, state === 'captured');
+          show(placeholder, state === 'off');
+      }
+  
+      function ensureHandler(cb) {
+          if (window.CameraHandler) { return cb(); }
+          var s = document.createElement('script');
+          s.src = CAMERA_JS;
+          s.onload = cb;
+          s.onerror = function () {
+              setStatus('Could not load camera_handler.js from ' + CAMERA_JS +
+                        '. Check the static path.', 'text-danger');
+          };
+          document.head.appendChild(s);
+      }
+  
+      function startCamera() {
+          if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+              setStatus('This browser cannot access the camera. Camera access also requires HTTPS or localhost.',
+                        'text-danger');
+              return;
+          }
+          setStatus('Starting camera…');
+          ensureHandler(async function () {
+              try {
+                  if (!handler) { handler = new CameraHandler('captureCanvas', { width: 640, height: 480 }); }
+                  await handler.start();
+                  setState('live');
+                  setStatus('Camera ready. Center the face and capture.');
+              } catch (err) {
+                  var msg = 'Could not start the camera.';
+                  if (err && err.name === 'NotAllowedError') { msg = 'Camera permission was denied. Allow access in the browser and try again.'; }
+                  else if (err && err.name === 'NotFoundError') { msg = 'No camera was found on this device.'; }
+                  setState('off');
+                  setStatus(msg, 'text-danger');
+              }
+          });
+      }
+  
+      function capture() {
+          var data = handler && handler.captureFrame();
+          if (!data) { setStatus('Could not capture a frame. Try again.', 'text-danger'); return; }
+          hidden.value = data;
+          preview.src = data;
+          handler.stop();
+          setState('captured');
+          setStatus('Photo captured. Submit the form to continue, or retake.', 'text-success');
+      }
+  
+      function retake() {
+          hidden.value = '';
+          preview.removeAttribute('src');
+          startCamera();
+      }
+  
+      startBtn.addEventListener('click', startCamera);
+      captureBtn.addEventListener('click', capture);
+      retakeBtn.addEventListener('click', retake);
+  
+      document.querySelectorAll('[data-face-retake]').forEach(function (el) {
+          el.addEventListener('click', retake);
+      });
+  
+      // Restore a previously captured photo (re-render after a blurry-photo warning)
+      if (hidden.value) {
+          preview.src = hidden.value;
+          setState('captured');
+          setStatus('Photo captured.', 'text-success');
+      } else {
+          setState('off');
+      }
+  
+      // Block submit without a photo
+      var form = hidden.closest('form');
+      if (form) {
+          form.addEventListener('submit', function (e) {
+              if (!hidden.value) {
+                  e.preventDefault();
+                  setStatus('Capture a photo before submitting.', 'text-danger');
+              }
+          });
+      }
+  
+      window.addEventListener('beforeunload', function () { if (handler) { handler.stop(); } });
+  })();
+  </script>

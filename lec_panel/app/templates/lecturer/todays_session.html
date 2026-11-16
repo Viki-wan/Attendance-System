@@ -7,7 +7,7 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-md-8">
-            <h2><i class="bi bi-calendar-day"></i> Today's Sessions</h2>
+            <h2><i class="bi bi-clock-history"></i> Today's Sessions</h2>
             <p class="text-muted">{{ current_date }} ({{ current_day }})</p>
         </div>
         <div class="col-md-4 text-end">
@@ -71,7 +71,7 @@
                                     <small>{{ session.end_time }}</small>
                                     <div class="mt-1">
                                         <small class="badge bg-light text-dark">
-                                            {{ session.get_duration() }} min
+                                            {{ session.duration_minutes }} min
                                         </small>
                                     </div>
                                 </div>
@@ -83,10 +83,10 @@
                                     {% if session.status == 'ongoing' %}
                                         <span class="badge bg-warning text-dark me-2">LIVE</span>
                                     {% endif %}
-                                    {{ session.class.class_name }}
+                                    {{ session.class_.class_name }}
                                 </h6>
                                 <p class="mb-1 text-muted small">
-                                    <i class="bi bi-book"></i> {{ session.class.course.course_name }}
+                                    <i class="bi bi-book"></i> {{ session.class_.course.course_name }}
                                 </p>
                                 <p class="mb-0">
                                     <span class="badge bg-light text-dark">
@@ -113,7 +113,7 @@
                                     <span class="badge bg-success fs-6">Completed</span>
                                     <div class="mt-2">
                                         <small class="text-muted">
-                                            Attendance: {{ session.attendance_rate }}%
+                                            Attendance: {{ "%.1f"|format(session.attendance_rate) }}%
                                         </small>
                                     </div>
                                 {% elif session.status == 'dismissed' %}
@@ -126,9 +126,9 @@
                             <!-- Actions -->
                             <div class="col-md-3 text-end">
                                 {% if session.status == 'scheduled' %}
-                                    {% if session.can_start() %}
+                                    {% if session.can_start %}
                                         <a href="{{ url_for('lecturer_sessions.start_session', session_id=session.session_id) }}" 
-                                           class="btn btn-success">
+                                        class="btn btn-success">
                                             <i class="bi bi-play-circle"></i> Start Now
                                         </a>
                                     {% else %}
@@ -138,12 +138,12 @@
                                     {% endif %}
                                 {% elif session.status == 'ongoing' %}
                                     <a href="{{ url_for('lecturer_attendance.live_attendance', session_id=session.session_id) }}" 
-                                       class="btn btn-primary">
+                                    class="btn btn-primary">
                                         <i class="bi bi-camera-video"></i> Continue
                                     </a>
                                 {% elif session.status == 'completed' %}
-                                    <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
-                                       class="btn btn-outline-info">
+                                    <a href="{{ url_for('lecturer_sessions.view_session', session_id=session.session_id) }}" 
+                                    class="btn btn-outline-info">
                                         <i class="bi bi-eye"></i> View
                                     </a>
                                 {% endif %}
@@ -155,7 +155,7 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
                                         <li>
-                                            <a class="dropdown-item" href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}">
+                                            <a class="dropdown-item" href="{{ url_for('lecturer_sessions.view_session', session_id=session.session_id) }}">
                                                 <i class="bi bi-info-circle"></i> Details
                                             </a>
                                         </li>
@@ -209,9 +209,7 @@
         <div class="row mt-4">
             <div class="col-md-12 text-center">
                 <div class="btn-group" role="group">
-                    <a href="{{ url_for('lecturer_sessions.create_session') }}" class="btn btn-outline-primary">
-                        <i class="bi bi-plus-circle"></i> Create New Session
-                    </a>
+                
                     <a href="{{ url_for('lecturer_sessions.upcoming_sessions') }}" class="btn btn-outline-primary">
                         <i class="bi bi-calendar-week"></i> Upcoming Sessions
                     </a>
@@ -228,9 +226,7 @@
             <h4 class="mt-3 text-muted">No Sessions Today</h4>
             <p class="text-muted">You don't have any sessions scheduled for today</p>
             <div class="mt-4">
-                <a href="{{ url_for('lecturer_sessions.create_session') }}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> Create New Session
-                </a>
+                
                 <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-outline-primary">
                     <i class="bi bi-calendar-plus"></i> Bulk Create from Timetable
                 </a>

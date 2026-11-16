@@ -1,0 +1,152 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Semester rollover - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 900px; margin: 0 auto;">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-arrow-repeat me-2"></i>Semester rollover</h1>
+            <p class="text-muted mb-0">
+                When the campus moves to a new semester, this closes the finished semester's enrolments,
+                sets up the next ones and moves the timetable's dates forward. You preview first; nothing
+                changes until you run it, and it can only run once per semester.
+            </p>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin_settings.index') }}">
+            <i class="bi bi-arrow-left"></i> Settings
+        </a>
+    </div>
+
+    <!-- Status -->
+    <div class="alert alert-{{ state.level }} {% if state.due %}border-warning{% endif %}">
+        <i class="bi {% if state.due or state.blocked or state.reversed %}bi-exclamation-triangle{% else %}bi-check-circle{% endif %} me-1"></i>
+        {{ state.message }}
+    </div>
+
+    {% if plan %}
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Preview: {{ plan.kind_label }} &middot; {{ plan.target_label }}</h5>
+        </div>
+        <div class="card-body">
+            <p class="small text-muted">
+                This is exactly what will change if you run it now. Nothing has been written yet.
+            </p>
+            <table class="table table-sm align-middle mb-3">
+                <tbody>
+                    <tr>
+                        <td>New semester {{ plan.target[1] }} enrolment rows</td>
+                        <td class="text-end fw-semibold">
+                            {% if plan.kind == 'to_sem2' %}{{ plan.counts.create }}{% else %}0{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Semester {{ plan.finished_semester }} enrolment rows marked Completed</td>
+                        <td class="text-end fw-semibold">{{ plan.counts.complete }}</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Timetable entries rolled to {{ plan.window[0].isoformat() }} &ndash; {{ plan.window[1].isoformat() }}
+                            <div class="small text-muted">Dates only. No sessions are generated; use the Generate page for that.</div>
+                        </td>
+                        <td class="text-end fw-semibold">{{ plan.counts.timetable }}</td>
+                    </tr>
+                    <tr>
+                        <td>Active students recorded as being in semester {{ plan.target[1] }}</td>
+                        <td class="text-end fw-semibold">{{ plan.counts.students }}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {% if plan.kind == 'to_sem1' %}
+            <div class="alert alert-info py-2 small">
+                <i class="bi bi-info-circle me-1"></i>
+                A new academic year starts here, so no semester 1 enrolment rows are created by this step.
+                The yearly promotion moves students up a year and creates the new year's enrolments.
+            </div>
+            {% endif %}
+
+            <ul class="small text-muted mb-3">
+                <li>Only <strong>Active</strong> rows of the finished semester are marked Completed. Dropped, Failed and already Completed rows are never touched.</li>
+                {% if plan.counts.null_semester_active %}
+                <li>{{ plan.counts.null_semester_active }} active enrolment row(s) have no semester recorded and are left as they are.</li>
+                {% endif %}
+                <li>Class membership is unchanged: it depends on a student's course and year of study, not on these rows.</li>
+                <li>{{ plan.counts.inactive_students }} inactive student(s) are not enrolled.</li>
+            </ul>
+
+            {% if plan.counts.skipped %}
+            <h6>
+                {{ plan.counts.skipped }} student(s) get no new row
+                <a class="btn btn-sm btn-outline-secondary ms-2" href="{{ url_for('admin_settings.rollover_skipped') }}">
+                    <i class="bi bi-download"></i> Download the full list (CSV)
+                </a>
+            </h6>
+            <div class="table-responsive mb-3">
+                <table class="table table-sm">
+                    <thead><tr><th>Student</th><th>Course</th><th>Year</th><th>Why</th></tr></thead>
+                    <tbody>
+                        {% for s in skipped_shown %}
+                        <tr>
+                            <td>{{ s.student_id }}</td>
+                            <td>{{ s.course_code or '-' }}</td>
+                            <td>{{ s.year if s.year is not none else '-' }}</td>
+                            <td>{{ s.reason_text }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% if plan.counts.skipped > max_skipped_shown %}
+                <div class="small text-muted">Showing the first {{ max_skipped_shown }}. The CSV has all of them.</div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="border rounded p-3 bg-light">
+                <p class="small mb-2">
+                    <i class="bi bi-shield-check me-1"></i>
+                    A verified backup of the database is written to
+                    <code>{{ backup_dir or 'the backups folder next to the database' }}</code>
+                    before anything changes. An earlier backup is never overwritten. If the backup fails,
+                    nothing is changed. Everything else happens in one transaction: it all succeeds or none of it does.
+                </p>
+                <form method="post" action="{{ url_for('admin_settings.rollover_run') }}"
+                      onsubmit='return confirm({{ ("Run the rollover for " ~ plan.target_label ~ "? A backup is made first. This can only be run once for this semester.")|tojson }});'>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="fingerprint" value="{{ plan.fingerprint }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-play-fill"></i> Run rollover now
+                    </button>
+                    <span class="small text-muted ms-2">Preview id {{ plan.fingerprint }}</span>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Last run -->
+    <div class="card mb-5">
+        <div class="card-header bg-white"><h5 class="mb-0">Last rollover</h5></div>
+        <div class="card-body">
+            {% if marker %}
+            <p class="mb-2">
+                Recorded: <strong>{{ marker.description or marker.value }}</strong>
+                {% if marker.updated_at %}<span class="small text-muted" title="UTC">&middot; {{ marker.updated_at }}</span>{% endif %}
+            </p>
+            {% else %}
+            <p class="text-muted mb-2">No rollover has been run from this page yet.</p>
+            {% endif %}
+
+            {% if recent %}
+            <div class="small text-muted mb-1">Recent runs (from the activity log)</div>
+            <ul class="small mb-0">
+                {% for r in recent %}
+                <li><span title="UTC">{{ r.timestamp }}</span> &mdash; {{ r.user }}: {{ r.description }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

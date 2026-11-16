@@ -1,0 +1,152 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Session {{ s.class_id }} - Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1100px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <a href="{{ url_for('admin_sessions.index', range='all') }}" class="btn btn-sm btn-outline-secondary mb-2">
+                <i class="bi bi-arrow-left"></i> All sessions
+            </a>
+            <h1 class="h3 mb-0">
+                {{ s.class_id }}
+                <span class="badge bg-{{ status_badges.get(s.status, 'secondary') }} align-middle fs-6">{{ status_labels.get(s.status, s.status) }}</span>
+                {% if s.status == 'scheduled' and s.is_past %}<span class="badge bg-light text-dark border align-middle fs-6">past</span>{% endif %}
+            </h1>
+            <div class="text-muted">
+                {{ s.date.strftime('%A %d %B %Y') if s.date else s.date_raw }}
+                &middot; {{ s.start_time }}&ndash;{{ s.end_time }}
+                {% if s.duration %}({{ s.duration }} min){% endif %}
+            </div>
+        </div>
+        <div class="text-muted small">Session #{{ s.session_id }}</div>
+    </div>
+
+    {% if s.holiday %}
+    <div class="alert alert-warning py-2"><i class="bi bi-calendar-x me-1"></i>This date is a holiday: {{ s.holiday }}.</div>
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-info-circle me-1"></i> Session</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Class</dt>
+                        <dd class="col-sm-8">
+                            {{ s.class_id }}{% if s.class_name %} &middot; {{ s.class_name }}{% endif %}
+                            {% if not s.class_active %}<span class="badge bg-secondary">inactive</span>{% endif %}
+                            <a href="{{ url_for('admin_timetable.index', class_id=s.class_id) }}" class="small ms-2">timetable</a>
+                        </dd>
+                        <dt class="col-sm-4">Course</dt>
+                        <dd class="col-sm-8">{{ s.course_code }}{% if s.course_name %} &middot; {{ s.course_name }}{% endif %}</dd>
+                        <dt class="col-sm-4">Cohort</dt>
+                        <dd class="col-sm-8">Year {{ s.year }}, semester {{ s.semester }}</dd>
+                        <dt class="col-sm-4">Lecturers</dt>
+                        <dd class="col-sm-8">
+                            {% if s.lecturers %}
+                                {% for l in s.lecturers %}
+                                <span class="{% if not l.is_active %}text-muted{% endif %}">{{ l.instructor_name }}{% if not l.is_active %} (inactive){% endif %}</span>{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}<span class="text-muted">None assigned</span>{% endif %}
+                        </dd>
+                        <dt class="col-sm-4">Created for</dt>
+                        <dd class="col-sm-8">{{ s.created_by_name or '—' }}</dd>
+                        <dt class="col-sm-4">Created</dt>
+                        <dd class="col-sm-8">{{ s.created_at or '—' }}{% if s.updated_at and s.updated_at != s.created_at %} <span class="text-muted">(updated {{ s.updated_at }})</span>{% endif %}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-people me-1"></i> Attendance</div>
+                <div class="card-body">
+                    {% if s.attendance.total %}
+                    <div class="d-flex flex-wrap gap-4">
+                        <div><div class="h4 mb-0 text-success">{{ s.attendance.Present }}</div><div class="text-muted small">Present</div></div>
+                        <div><div class="h4 mb-0 text-warning">{{ s.attendance.Late }}</div><div class="text-muted small">Late</div></div>
+                        <div><div class="h4 mb-0 text-danger">{{ s.attendance.Absent }}</div><div class="text-muted small">Absent</div></div>
+                        <div><div class="h4 mb-0 text-info">{{ s.attendance.Excused }}</div><div class="text-muted small">Excused</div></div>
+                        <div><div class="h4 mb-0">{{ s.attendance.total }}</div><div class="text-muted small">Records</div></div>
+                    </div>
+                    {% else %}
+                    <span class="text-muted">No attendance has been recorded for this session.</span>
+                    {% endif %}
+                    {% if s.total_students %}
+                    <div class="text-muted small mt-2">Recorded on the session: {{ s.attendance_count }} present of {{ s.total_students }} students.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-person-x me-1"></i> Lecturer dismissal</div>
+                <div class="card-body">
+                    {% if s.dismissals %}
+                        {% for d in s.dismissals %}
+                        <div class="{% if not loop.last %}border-bottom pb-2 mb-2{% endif %}">
+                            <span class="badge bg-warning text-dark">{{ d.status }}</span>
+                            <strong>{{ d.instructor_name or d.instructor_id }}</strong>
+                            <span class="text-muted small">{{ d.dismissal_time }}</span>
+                            <div class="mt-1">{{ d.reason }}</div>
+                            {% if d.rescheduled_to %}
+                            <div class="small text-muted">Moved to {{ d.rescheduled_to }}{% if d.rescheduled_time %} at {{ d.rescheduled_time }}{% endif %}</div>
+                            {% endif %}
+                            {% if d.notes %}<div class="small text-muted">{{ d.notes }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
+                    {% elif s.status in ('dismissed', 'cancelled') %}
+                        <span class="text-muted">This session is {{ s.status }} but no reason was recorded (older data).</span>
+                    {% else %}
+                        <span class="text-muted">None.</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if s.notes %}
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-journal-text me-1"></i> Notes</div>
+                <div class="card-body" style="white-space: pre-wrap;">{{ s.notes }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header"><i class="bi bi-sliders me-1"></i> Actions</div>
+                <div class="card-body">
+                    {% if s.can_modify %}
+                    <a href="{{ url_for('admin_sessions.reschedule', session_id=s.session_id) }}" class="btn btn-primary w-100 mb-3">
+                        <i class="bi bi-calendar2-range"></i> Reschedule
+                    </a>
+                    <form method="post" action="{{ url_for('admin_sessions.cancel', session_id=s.session_id) }}"
+                          onsubmit="return confirm('Cancel this session? This cannot be undone here.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label class="form-label small mb-1" for="cancelReason">Cancel this session</label>
+                        <textarea name="reason" id="cancelReason" class="form-control form-control-sm mb-2" rows="2"
+                                  maxlength="300" placeholder="Reason (required)" required></textarea>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" name="notify" value="1" id="cancelNotify" checked>
+                            <label class="form-check-label small" for="cancelNotify">Notify the class's lecturers</label>
+                        </div>
+                        <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                            <i class="bi bi-x-circle"></i> Cancel session
+                        </button>
+                    </form>
+                    {% else %}
+                    <div class="text-muted small">
+                        <i class="bi bi-lock me-1"></i>{{ s.cannot_modify_reason }}.
+                    </div>
+                    {% endif %}
+                    {% if s.status in ('completed', 'ongoing') %}
+                    <hr>
+                    <a href="{{ url_for('admin_attendance.sheet', session_id=s.session_id) }}" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-list-check"></i> Attendance sheet
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

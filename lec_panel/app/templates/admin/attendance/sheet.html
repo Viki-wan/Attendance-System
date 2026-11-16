@@ -1,0 +1,228 @@
+{% extends "admin/base_admin.html" %}
+{% from "admin/attendance/_macros.html" import rate, status_badge %}
+
+{% block title %}Attendance sheet {{ d.session.class_id }} - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .at-sheet td, .at-sheet th { vertical-align: middle; }
+    .at-sheet thead th { white-space: nowrap; }
+    .at-sheetwrap { overflow-x: auto; }
+    .at-row-sel { background: #eef4ff; }
+    .at-note { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+    .at-bar { position: sticky; top: 60px; z-index: 3; }
+    .at-quick .btn { padding: 0 .4rem; line-height: 1.5; }
+    @media (max-width: 991.98px) { .at-bar { position: static; } }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set s = d.session %}
+{% set sm = d.summary %}
+<div class="container-fluid mt-4" style="max-width: 1300px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <a href="{{ url_for('admin_attendance.index') }}" class="btn btn-sm btn-outline-secondary mb-2">
+                <i class="bi bi-arrow-left"></i> Held sessions
+            </a>
+            <h1 class="h3 mb-0">
+                {{ s.class_id }}
+                <span class="badge bg-{{ session_badges.get(s.status, 'secondary') }} align-middle fs-6">{{ session_labels.get(s.status, s.status|capitalize) }}</span>
+            </h1>
+            <div class="text-muted">
+                {{ s.date.strftime('%A %d %B %Y') if s.date else s.date_raw }} &middot; {{ s.start_time }}&ndash;{{ s.end_time }}
+                &middot; {{ s.course_code }} Year {{ s.year }}
+                <a href="{{ url_for('admin_attendance.class_view', class_id=s.class_id) }}" class="small ms-2">class summary</a>
+                <a href="{{ url_for('admin_sessions.view', session_id=s.session_id) }}" class="small ms-2">session details</a>
+            </div>
+        </div>
+        <div class="text-muted small">Session #{{ s.session_id }}</div>
+    </div>
+
+    <div class="d-flex justify-content-end mb-2">{% include 'admin/attendance/_export_menu.html' %}</div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-2"><div class="card"><div class="card-body py-2"><div class="h4 mb-0 text-success">{{ sm.Present }}</div><div class="text-muted small">Present</div></div></div></div>
+        <div class="col-6 col-md-2"><div class="card"><div class="card-body py-2"><div class="h4 mb-0 text-warning">{{ sm.Late }}</div><div class="text-muted small">Late</div></div></div></div>
+        <div class="col-6 col-md-2"><div class="card"><div class="card-body py-2"><div class="h4 mb-0 text-danger">{{ sm.Absent }}</div><div class="text-muted small">Absent</div></div></div></div>
+        <div class="col-6 col-md-2"><div class="card"><div class="card-body py-2"><div class="h4 mb-0 text-info">{{ sm.Excused }}</div><div class="text-muted small">Excused</div></div></div></div>
+        <div class="col-6 col-md-2"><div class="card"><div class="card-body py-2"><div class="h4 mb-0">{{ sm.no_record }}</div><div class="text-muted small">No record</div></div></div></div>
+        <div class="col-6 col-md-2"><div class="card"><div class="card-body py-2"><div class="h4 mb-0">{{ rate(sm.rate, sm.low) }}</div><div class="text-muted small">{{ sm.attended }} of {{ sm.expected }} attended</div></div></div></div>
+    </div>
+
+    {% if d.count_mismatch %}
+    <div class="alert alert-warning py-2">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        The session shows {{ s.attendance_count }}/{{ s.total_students }} attended, but the records below give {{ sm.attended }}.
+        Saving any correction here recalculates the session's count from the records.
+    </div>
+    {% endif %}
+
+    {% if not d.can_correct %}
+    <div class="alert alert-secondary py-2"><i class="bi bi-lock me-1"></i>{{ d.cannot_correct_reason }}. This sheet is read-only.</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('admin_attendance.correct', session_id=s.session_id) }}" id="correctForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        {% if d.can_correct %}
+        <div class="card mb-3 at-bar">
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-semibold">Set <span id="selCount">0</span> selected to</span>
+                    <select name="status" id="newStatus" class="form-select form-select-sm w-auto" required>
+                        <option value="">Status&hellip;</option>
+                        {% for st in statuses %}<option value="{{ st }}">{{ st }}</option>{% endfor %}
+                    </select>
+                    <input type="text" name="reason" id="reason" class="form-control form-control-sm" style="flex: 1 1 220px; min-width: 180px;"
+                           maxlength="{{ max_reason }}" placeholder="Reason (required, kept in the record)" required>
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="notify" value="1" id="notify" checked>
+                        <label class="form-check-label small" for="notify">Notify lecturers</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm" id="applyBtn" disabled>
+                        <i class="bi bi-check2-circle"></i> Apply
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="card-header d-flex flex-wrap align-items-center gap-2">
+                <span><i class="bi bi-list-check me-1"></i> {{ d.entries|length }} student{{ '' if d.entries|length == 1 else 's' }}</span>
+                <input type="search" id="rowSearch" class="form-control form-control-sm ms-auto" style="max-width: 200px;" placeholder="Find student" aria-label="Find student">
+                <select id="rowFilter" class="form-select form-select-sm w-auto" aria-label="Show">
+                    <option value="">Show all</option>
+                    {% for st in statuses %}<option value="{{ st }}">{{ st }} only</option>{% endfor %}
+                    <option value="none">No record only</option>
+                </select>
+                {% if d.can_correct %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="selVisible">Select shown</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="selNone">Clear</button>
+                {% endif %}
+            </div>
+            <div class="at-sheetwrap">
+                <table class="table table-hover table-sm mb-0 at-sheet">
+                    <thead><tr>
+                        {% if d.can_correct %}<th class="ps-3" style="width: 2rem;"></th>{% endif %}
+                        <th {% if not d.can_correct %}class="ps-3"{% endif %}>Student</th>
+                        <th>Status</th><th>Method</th><th>Marked</th><th>Last note</th>
+                        {% if d.can_correct %}<th class="pe-3">Quick set</th>{% endif %}
+                    </tr></thead>
+                    <tbody>
+                    {% for e in d.entries %}
+                    <tr data-status="{{ e.status or 'none' }}" data-text="{{ (e.student_id ~ ' ' ~ e.name)|lower }}">
+                        {% if d.can_correct %}
+                        <td class="ps-3"><input class="form-check-input row-check" type="checkbox" name="rows"
+                            value="{{ e.student_id }}|{{ e.status or '' }}" aria-label="Select {{ e.student_id }}"></td>
+                        {% endif %}
+                        <td {% if not d.can_correct %}class="ps-3"{% endif %}>
+                            <a href="{{ url_for('admin_attendance.student_view', student_id=e.student_id) }}" class="text-decoration-none">{{ e.student_id }}</a>
+                            <span class="text-muted small">{{ e.name }}</span>
+                            {% if not e.in_class %}<span class="badge bg-light text-dark border" title="Has a record here but is not an active student of this cohort now">not in class now{% if e.inactive %} (inactive){% endif %}</span>{% endif %}
+                        </td>
+                        <td>{{ status_badge(e.status, status_badges) }}
+                            {% if e.corrected %}<i class="bi bi-pencil-square text-primary" title="Corrected by an admin"></i>{% endif %}</td>
+                        <td class="text-muted small">{{ e.method or '—' }}{% if e.confidence is not none and e.status in ('Present', 'Late') %} &middot; {{ '%.0f'|format(e.confidence * 100) }}%{% endif %}</td>
+                        <td class="text-muted small">{% if e.has_row %}{{ e.marked_by or 'system' }}{% if e.timestamp %} &middot; {{ e.timestamp }}{% endif %}{% else %}—{% endif %}</td>
+                        <td class="small text-muted"><span class="at-note" title="{{ e.last_note }}">{{ e.last_note }}</span></td>
+                        {% if d.can_correct %}
+                        <td class="pe-3 at-quick text-nowrap">
+                            {% for st in statuses %}
+                            <button type="button" class="btn btn-outline-{{ status_badges[st] }} btn-sm quick" data-status="{{ st }}"
+                                    title="Set {{ st }}">{{ st[0] }}</button>
+                            {% endfor %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if not d.entries %}
+            <div class="card-body text-muted">No students are expected in this class and nobody has a record for it.</div>
+            {% endif %}
+            <div class="card-footer text-muted small">
+                Attended = Present + Late. Excused counts as expected but not attended, like the lecturer panel.
+                {% if d.can_correct %}A correction sets the method to manual and keeps who, what and why in the record and the corrections log.{% endif %}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.at-sheet tbody tr'));
+    var checks = Array.prototype.slice.call(document.querySelectorAll('.row-check'));
+    var search = document.getElementById('rowSearch');
+    var filter = document.getElementById('rowFilter');
+
+    function applyFilter() {
+        var q = (search.value || '').toLowerCase().trim();
+        var st = filter.value;
+        rows.forEach(function (tr) {
+            var okText = !q || tr.dataset.text.indexOf(q) !== -1;
+            var okStatus = !st || tr.dataset.status === st;
+            tr.style.display = (okText && okStatus) ? '' : 'none';
+        });
+    }
+    search.addEventListener('input', applyFilter);
+    filter.addEventListener('change', applyFilter);
+
+    var form = document.getElementById('correctForm');
+    var count = document.getElementById('selCount');
+    if (!count) { return; }          // read-only sheet: nothing else to wire up
+    var statusSel = document.getElementById('newStatus');
+    var reason = document.getElementById('reason');
+    var apply = document.getElementById('applyBtn');
+
+    function refresh() {
+        var n = 0;
+        checks.forEach(function (c) {
+            if (c.checked) { n++; }
+            c.closest('tr').classList.toggle('at-row-sel', c.checked);
+        });
+        count.textContent = n;
+        apply.disabled = n === 0;
+    }
+    checks.forEach(function (c) { c.addEventListener('change', refresh); });
+
+    document.getElementById('selVisible').addEventListener('click', function () {
+        rows.forEach(function (tr) {
+            if (tr.style.display !== 'none') { tr.querySelector('.row-check').checked = true; }
+        });
+        refresh();
+    });
+    document.getElementById('selNone').addEventListener('click', function () {
+        checks.forEach(function (c) { c.checked = false; });
+        refresh();
+    });
+
+    // Quick set: select just that student, choose the status, jump to the reason
+    document.querySelectorAll('.quick').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            checks.forEach(function (c) { c.checked = false; });
+            btn.closest('tr').querySelector('.row-check').checked = true;
+            statusSel.value = btn.dataset.status;
+            refresh();
+            reason.focus();
+        });
+    });
+
+    form.addEventListener('submit', function (ev) {
+        var n = checks.filter(function (c) { return c.checked; }).length;
+        if (!n || !statusSel.value || !reason.value.trim()) {
+            ev.preventDefault();
+            return;
+        }
+        if (!confirm('Set ' + n + ' student' + (n === 1 ? '' : 's') + ' to ' + statusSel.value + '?')) {
+            ev.preventDefault();
+        }
+    });
+    refresh();
+})();
+</script>
+{% endblock %}

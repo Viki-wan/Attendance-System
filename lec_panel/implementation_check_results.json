@@ -1,0 +1,81 @@
+{
+  "files": {
+    "socket_io_events.py": {
+      "exists": true,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\lec_panel\\app\\socket_io_events.py",
+      "size": 15838
+    },
+    "face_recognition_service.py": {
+      "exists": true,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\lec_panel\\app\\services\\face_recognition_service.py",
+      "size": 15959
+    },
+    "camera_service.py": {
+      "exists": true,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\lec_panel\\app\\services\\camera_service.py",
+      "size": 11827
+    },
+    "face_processing.py": {
+      "exists": true,
+      "path": "C:\\Users\\HP\\.vscode\\attendance system\\lec_panel\\app\\tasks\\face_processing.py",
+      "size": 12834
+    }
+  },
+  "socketio_handlers": [
+    "test_connection",
+    "leave_session",
+    "join_session",
+    "connect",
+    "process_frame",
+    "get_student_list",
+    "session_heartbeat",
+    "stop_recognition",
+    "mark_attendance_manual",
+    "request_session_stats",
+    "start_recognition",
+    "disconnect"
+  ],
+  "celery_tasks": [
+    "mark_attendance_task",
+    "update_session_statistics_task",
+    "save_unknown_face_task",
+    "preload_class_faces_task",
+    "generate_face_encoding_task",
+    "process_frame_task",
+    "batch_process_frames_task",
+    "cleanup_old_unknown_faces_task"
+  ],
+  "service_methods": {
+    "FaceRecognitionService": [
+      "__init__",
+      "load_known_faces",
+      "extract_face_encoding",
+      "process_frame",
+      "recognize_face",
+      "save_unknown_face",
+      "validate_face_quality",
+      "batch_process_faces",
+      "get_cache_stats",
+      "clear_cache"
+    ],
+    "CameraService": [
+      "__init__",
+      "decode_frame",
+      "encode_frame",
+      "validate_frame",
+      "resize_frame",
+      "draw_face_box",
+      "add_overlay_info",
+      "register_session",
+      "unregister_session",
+      "update_session_stats",
+      "get_session_stats",
+      "buffer_frame",
+      "get_buffered_frame",
+      "apply_preprocessing",
+      "get_active_sessions"
+    ]
+  },
+  "missing": [],
+  "project_root": "C:\\Users\\HP\\.vscode\\attendance system\\lec_panel"
+}

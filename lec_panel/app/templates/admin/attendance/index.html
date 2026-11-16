@@ -1,0 +1,123 @@
+{% extends "admin/base_admin.html" %}
+{% from "admin/attendance/_macros.html" import rate %}
+
+{% block title %}Attendance - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .at-list thead th { position: sticky; top: 60px; z-index: 2; background: #f8f9fa; white-space: nowrap; }
+    .at-list td { white-space: nowrap; vertical-align: middle; }
+    .at-ell { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+    .at-chip { text-decoration: none; }
+    .at-chip .badge { font-weight: 500; }
+    .at-mini span { display: inline-block; min-width: 1.6rem; text-align: right; }
+    @media (max-width: 991.98px) {
+        .at-listwrap { overflow-x: auto; }
+        .at-list thead th { position: static; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1400px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 class="h3 mb-0"><i class="bi bi-file-earmark-bar-graph me-2"></i>Attendance</h1>
+    </div>
+
+    {% set active_tab = 'sessions' %}
+    {% include 'admin/attendance/_nav.html' %}
+
+    {% set filter_endpoint = 'admin_attendance.index' %}
+    {% set extra_hidden = {'status': status, 'low': '1' if low else ''} %}
+    {% include 'admin/attendance/_filters.html' %}
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <a href="{{ all_status_link }}" class="at-chip">
+            <span class="badge {% if not status %}bg-primary{% else %}bg-light text-dark border{% endif %}">All {{ result.total_all }}</span>
+        </a>
+        {% for s in statuses %}
+        {% set n = result.status_counts.get(s, 0) %}
+        {% if n or status == s %}
+        <a href="{{ status_links[s] }}" class="at-chip">
+            <span class="badge {% if status == s %}bg-{{ status_badges[s] }}{% else %}bg-light text-dark border{% endif %}">{{ status_labels[s] }} {{ n }}</span>
+        </a>
+        {% endif %}
+        {% endfor %}
+        <span class="text-muted">|</span>
+        <a href="{{ low_link }}" class="at-chip" title="Completed sessions below {{ threshold|int }}% attended">
+            <span class="badge {% if low %}bg-danger{% else %}bg-light text-dark border{% endif %}">
+                <i class="bi bi-exclamation-triangle"></i> Low attendance (&lt; {{ threshold|int }}%)
+            </span>
+        </a>
+    </div>
+
+    {% if rows %}
+    <div class="card">
+        <div class="at-listwrap">
+            <table class="table table-hover table-sm align-middle mb-0 at-list">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Date</th>
+                        <th>Time</th>
+                        <th>Class</th>
+                        <th>Cohort</th>
+                        <th class="text-end" title="Present / Late / Absent / Excused">P / L / A / E</th>
+                        <th class="text-end">Attended</th>
+                        <th class="text-end">Rate</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td class="ps-3"><span class="text-muted">{{ r.day_label }}</span> {{ r.date.strftime('%d %b %Y') if r.date else r.date_raw }}</td>
+                        <td>{{ r.start_time }}&ndash;{{ r.end_time }}</td>
+                        <td>
+                            <a href="{{ url_for('admin_attendance.sheet', session_id=r.session_id) }}" class="fw-semibold text-decoration-none">{{ r.class_id }}</a>
+                            <span class="at-ell text-muted small" title="{{ r.class_name }}">{{ r.class_name }}</span>
+                        </td>
+                        <td>{{ r.course_code }}{% if r.year %} &middot; Y{{ r.year }}{% endif %}</td>
+                        <td class="text-end at-mini">
+                            <span class="text-success">{{ r.counts.Present }}</span>
+                            <span class="text-warning">{{ r.counts.Late }}</span>
+                            <span class="text-danger">{{ r.counts.Absent }}</span>
+                            <span class="text-info">{{ r.counts.Excused }}</span>
+                        </td>
+                        <td class="text-end">{{ r.attendance_count }}/{{ r.total_students }}</td>
+                        <td class="text-end">{{ rate(r.rate, r.low) }}</td>
+                        <td><span class="badge bg-{{ status_badges.get(r.status, 'secondary') }}">{{ status_labels.get(r.status, r.status) }}</span></td>
+                        <td class="text-end pe-3">
+                            <a href="{{ url_for('admin_attendance.sheet', session_id=r.session_id) }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-list-check"></i> Sheet
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small">
+                {{ result.total }} session{{ '' if result.total == 1 else 's' }}
+                {% if result.pages > 1 %}&middot; page {{ result.page }} of {{ result.pages }}{% endif %}
+            </span>
+            {% if result.pages > 1 %}
+            <div class="btn-group btn-group-sm">
+                {% if page_links.prev %}<a href="{{ page_links.prev }}" class="btn btn-outline-secondary"><i class="bi bi-chevron-left"></i> Previous</a>
+                {% else %}<span class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i> Previous</span>{% endif %}
+                {% if page_links.next %}<a href="{{ page_links.next }}" class="btn btn-outline-secondary">Next <i class="bi bi-chevron-right"></i></a>
+                {% else %}<span class="btn btn-outline-secondary disabled">Next <i class="bi bi-chevron-right"></i></span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card"><div class="card-body text-center text-muted py-5">
+        <i class="bi bi-clipboard-x fs-1 d-block mb-2"></i>
+        No held sessions match these filters.
+        {% if active_filters %}<div class="mt-2"><a href="{{ url_for('admin_attendance.index') }}">Clear filters</a></div>{% endif %}
+    </div></div>
+    {% endif %}
+</div>
+{% endblock %}

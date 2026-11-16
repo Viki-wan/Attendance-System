@@ -8,7 +8,7 @@ from typing import List, Dict, Optional, Tuple
 from sqlalchemy import and_, or_, func, text
 from sqlalchemy.orm import joinedload, selectinload
 from flask import current_app
-
+import os
 from app import db
 from app.models.session import ClassSession
 from app.models.class_model import Class
@@ -20,6 +20,10 @@ from app.models.settings import Settings
 from app.models.session_dismissal import SessionDismissal
 from app.models.course import StudentCourse
 from app.services.notification_service import NotificationService
+from app.utils.academic_calendar import (
+    get_current_semester as campus_semester,
+    is_in_semester as campus_is_in_semester,
+)
 
 
 class SessionService:
@@ -31,34 +35,18 @@ class SessionService:
     @staticmethod
     def get_current_semester():
         """
-        Determine current semester based on date
-        Semester 1: September - December
-        Semester 2: January - April
-        Holiday: May - August (defaults to Semester 2 for filtering)
-        
+        Current campus semester, from the academic calendar the admin maintains
+        (app/utils/academic_calendar.py). Kept as a string for existing callers.
+
         Returns:
             str: Current semester ('1' or '2')
         """
-        now = datetime.now()
-        month = now.month
-        
-        if month in [9, 10, 11, 12]:
-            return '1'  # Semester 1
-        elif month in [1, 2, 3, 4]:
-            return '2'  # Semester 2
-        else:
-            # May-August is holiday period, default to last active semester
-            return '2'
+        return str(campus_semester())
 
     @staticmethod
     def is_in_semester(date: Optional[datetime] = None) -> bool:
-        """Check if current date is within an active semester (not holidays)"""
-        if date is None:
-            date = datetime.now()
-        
-        month = date.month
-        # Semester 1: Sep-Dec (9-12), Semester 2: Jan-Apr (1-4)
-        return (1 <= month <= 4) or (9 <= month <= 12)
+        """Check if a date is inside a semester window (not a break or the holiday)"""
+        return campus_is_in_semester(date)
 
     def update_missed_sessions(self) -> int:
         """
@@ -130,27 +118,45 @@ class SessionService:
     ) -> Tuple[List[ClassSession], int]:
         """
         Get all sessions for an instructor with filtering and pagination
-        Now includes automatic semester filtering
+        FIXED: Uses proper SQL join instead of problematic ORM join
         """
         # Auto-update missed sessions before retrieval
         self.update_missed_sessions()
         
-        query = ClassSession.query.join(
-            Class, ClassSession.class_id == Class.class_id
-        ).join(
-            db.Table('class_instructors'),
-            and_(
-                db.Table('class_instructors').c.class_id == Class.class_id,
-                db.Table('class_instructors').c.instructor_id == instructor_id
-            )
+        # Get current semester
+        current_semester = SessionService.get_current_semester()
+        
+        # Build base query using TEXT SQL for the join part
+        from sqlalchemy import text
+        
+        # First get session IDs that match the instructor
+        session_ids_query = text("""
+            SELECT DISTINCT s.session_id
+            FROM class_sessions s
+            JOIN classes c ON s.class_id = c.class_id
+            JOIN class_instructors ci ON c.class_id = ci.class_id
+            WHERE ci.instructor_id = :instructor_id
+            AND c.semester = :semester
+        """)
+        
+        params = {
+            'instructor_id': instructor_id,
+            'semester': current_semester
+        }
+        
+        # Get matching session IDs
+        result = db.session.execute(session_ids_query, params).fetchall()
+        session_ids = [r[0] for r in result]
+        
+        if not session_ids:
+            return [], 0
+        
+        # Now build ORM query with those IDs
+        query = ClassSession.query.filter(
+            ClassSession.session_id.in_(session_ids)
         ).options(
             joinedload(ClassSession.class_).joinedload(Class.course)
         )
-        
-        # Apply semester filter based on current date
-        current_semester = SessionService.get_current_semester()
-
-        query = query.filter(Class.semester == current_semester)
         
         # Apply filters
         if filters:
@@ -175,8 +181,53 @@ class SessionService:
             ClassSession.start_time.desc()
         ).paginate(page=page, per_page=per_page, error_out=False)
         
-        return sessions.items, total_count
+        return sessions.items, total_count 
+
+    def get_todays_sessions_direct(self, instructor_id: str) -> List[ClassSession]:
+        """
+        Get today's sessions - DIRECT SQL VERSION
+        More reliable than using the filtered get_instructor_sessions
+        """
+        from sqlalchemy import text
+        
+        # Auto-update missed sessions first
+        self.update_missed_sessions()
+        
+        today = datetime.now().date().isoformat()
+        
+        # Direct SQL query - gets ALL sessions for today regardless of semester
+        # This is intentional - if a session exists for today, show it
+        result = db.session.execute(
+            text("""
+                SELECT s.session_id
+                FROM class_sessions s
+                JOIN classes c ON s.class_id = c.class_id
+                JOIN class_instructors ci ON c.class_id = ci.class_id
+                WHERE ci.instructor_id = :instructor_id
+                AND s.date = :today
+                ORDER BY s.start_time
+            """),
+            {'instructor_id': instructor_id, 'today': today}
+        ).fetchall()
+        
+        # Get full ORM objects
+        session_ids = [r[0] for r in result]
+        
+        if not session_ids:
+            return []
+        
+        sessions = ClassSession.query.filter(
+            ClassSession.session_id.in_(session_ids)
+        ).options(
+            joinedload(ClassSession.class_).joinedload(Class.course),
+            joinedload(ClassSession.instructor)
+        ).order_by(
+            ClassSession.start_time
+        ).all()
+        
+        return sessions
     
+
     def get_instructor_classes_for_current_semester(self, instructor_id: str) -> List[Dict]:
         """
         Get instructor's classes filtered by current semester
@@ -244,20 +295,10 @@ class SessionService:
         return sessions
         
     def get_todays_sessions(self, instructor_id: str) -> List[ClassSession]:
-        """Get today's sessions for instructor"""
-        # Update missed sessions first
-        self.update_missed_sessions()
-        
-        today = datetime.now().date().isoformat()
-        
-        sessions, _ = self.get_instructor_sessions(
-            instructor_id,
-            filters={'date_from': today, 'date_to': today},
-            per_page=50
-        )
-        
-        return sessions
-    
+        """Get today's sessions for instructor - USES DIRECT QUERY"""
+        # Use the direct method instead of the filtered one
+        # This is more reliable and doesn't have the ORM join issues
+        return self.get_todays_sessions_direct(instructor_id)    
     # ==================== SESSION CREATION ====================
     
     def create_session(
@@ -849,11 +890,23 @@ class SessionService:
         
         result = []
         for student, attendance in students:
+            # Construct proper image URL
+            image_url = None
+            if student.image_path:
+                # Extract filename from path
+                filename = os.path.basename(student.image_path)
+                image_url = f'/student_images/{filename}'
+            else:
+                # Try to construct from student_id
+                # Handle both formats: S18-45808-22 -> S18_45808_22.jpg
+                filename = f"{student.student_id.replace('-', '_')}.jpg"
+                image_url = f'/student_images/{filename}'
+            
             result.append({
                 'student_id': student.student_id,
                 'name': f"{student.fname} {student.lname}",
                 'email': student.email,
-                'image_path': student.image_path,
+                'image_path': image_url,  # ← Changed: now uses constructed URL
                 'has_encoding': student.face_encoding is not None,
                 'attendance_status': attendance.status if attendance else 'Absent',
                 'attendance_time': attendance.timestamp if attendance else None,

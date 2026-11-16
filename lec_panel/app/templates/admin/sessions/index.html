@@ -1,0 +1,190 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Sessions - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .ss-filters .form-select, .ss-filters .form-control { min-width: 0; }
+    .ss-list thead th { position: sticky; top: 60px; z-index: 2; background: #f8f9fa; white-space: nowrap; }
+    .ss-list td { white-space: nowrap; vertical-align: middle; }
+    .ss-ell { display: inline-block; max-width: 220px; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+    .ss-chip { text-decoration: none; }
+    .ss-chip .badge { font-weight: 500; }
+    @media (max-width: 991.98px) {
+        .ss-listwrap { overflow-x: auto; }
+        .ss-list thead th { position: static; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4" style="max-width: 1400px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 class="h3 mb-0"><i class="bi bi-calendar-check me-2"></i>Sessions</h1>
+        <a href="{{ url_for('admin_timetable.generate') }}" class="btn btn-outline-primary">
+            <i class="bi bi-lightning-charge"></i> Generate sessions
+        </a>
+    </div>
+
+    {% set active_tab = 'sessions' %}
+    {% include 'admin/sessions/_nav.html' %}
+
+    <!-- Filters: one slim row, applied as soon as something changes -->
+    <form method="get" class="ss-filters mb-3" id="sessionFilters">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <select name="range" id="rangeSelect" class="form-select form-select-sm w-auto" aria-label="Date range">
+                {% for key, label in ranges %}
+                <option value="{{ key }}" {% if range_key == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+                {% if range_key == 'custom' %}<option value="custom" selected>Custom dates</option>{% endif %}
+            </select>
+            <div class="input-group input-group-sm w-auto">
+                <span class="input-group-text">From</span>
+                <input type="date" name="date_from" class="form-control" value="{{ date_from }}"
+                       aria-label="From date" onchange="this.form.submit()">
+            </div>
+            <div class="input-group input-group-sm w-auto">
+                <span class="input-group-text">To</span>
+                <input type="date" name="date_to" class="form-control" value="{{ date_to }}"
+                       aria-label="To date" onchange="this.form.submit()">
+            </div>
+            <select name="course" class="form-select form-select-sm w-auto" aria-label="Course" onchange="this.form.submit()">
+                <option value="">All courses</option>
+                {% for c in courses %}
+                <option value="{{ c.course_code }}" {% if course == c.course_code %}selected{% endif %}>{{ c.course_code }}</option>
+                {% endfor %}
+            </select>
+            <select name="year" class="form-select form-select-sm w-auto" aria-label="Year" onchange="this.form.submit()">
+                <option value="">All years</option>
+                {% for y in years %}
+                <option value="{{ y }}" {% if year == y %}selected{% endif %}>Year {{ y }}</option>
+                {% endfor %}
+            </select>
+            <select name="instructor" class="form-select form-select-sm w-auto" style="max-width: 220px;" aria-label="Lecturer" onchange="this.form.submit()">
+                <option value="">All lecturers</option>
+                {% for i in instructors %}
+                <option value="{{ i.instructor_id }}" {% if instructor == i.instructor_id %}selected{% endif %}>{{ i.instructor_name }}</option>
+                {% endfor %}
+            </select>
+            <div class="input-group input-group-sm w-auto">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="search" name="class_id" class="form-control" style="width: 150px;"
+                       placeholder="Class, e.g. SCI 101" value="{{ class_id }}" aria-label="Class"
+                       onchange="this.form.submit()">
+            </div>
+            {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+            {% if active_filters %}
+            <a href="{{ url_for('admin_sessions.index') }}" class="btn btn-sm btn-link">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+
+    <!-- Status chips: how the filtered set splits up; click to narrow -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <a href="{{ all_status_link }}" class="ss-chip">
+            <span class="badge {% if not status %}bg-primary{% else %}bg-light text-dark border{% endif %}">
+                All {{ result.total_all }}
+            </span>
+        </a>
+        {% for s in statuses %}
+        {% set n = result.status_counts.get(s, 0) %}
+        {% if n or status == s %}
+        <a href="{{ status_links[s] }}" class="ss-chip">
+            <span class="badge {% if status == s %}bg-{{ status_badges[s] }}{% else %}bg-light text-dark border{% endif %}">
+                {{ status_labels[s] }} {{ n }}
+            </span>
+        </a>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    {% if rows %}
+    <div class="card">
+        <div class="ss-listwrap">
+            <table class="table table-hover table-sm align-middle mb-0 ss-list">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Date</th>
+                        <th>Time</th>
+                        <th>Class</th>
+                        <th>Cohort</th>
+                        <th>Lecturer</th>
+                        <th class="text-end">Present</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr>
+                        <td class="ps-3">
+                            <span class="text-muted">{{ r.day_label }}</span>
+                            {{ r.date.strftime('%d %b %Y') if r.date else r.date_raw }}
+                        </td>
+                        <td>{{ r.start_time }}&ndash;{{ r.end_time }}</td>
+                        <td>
+                            <a href="{{ url_for('admin_sessions.view', session_id=r.session_id) }}" class="fw-semibold text-decoration-none">{{ r.class_id }}</a>
+                            <span class="ss-ell text-muted small" title="{{ r.class_name }}">{{ r.class_name }}</span>
+                        </td>
+                        <td>{{ r.course_code }}{% if r.year %} &middot; Y{{ r.year }}{% endif %}</td>
+                        <td>
+                            {% if r.lecturers %}
+                            <span class="ss-ell" title="{{ r.lecturers|join(', ') }}">{{ r.lecturers[0] }}{% if r.lecturers|length > 1 %} +{{ r.lecturers|length - 1 }}{% endif %}</span>
+                            {% else %}<span class="text-muted">&mdash;</span>{% endif %}
+                        </td>
+                        <td class="text-end">
+                            {% if r.status in ('completed', 'ongoing') %}{{ r.attendance_count }}/{{ r.total_students }}{% else %}<span class="text-muted">&mdash;</span>{% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ status_badges.get(r.status, 'secondary') }}">{{ status_labels.get(r.status, r.status) }}</span>
+                            {% if r.status == 'scheduled' and r.is_past %}<span class="text-muted small">past</span>{% endif %}
+                        </td>
+                        <td class="text-end pe-3">
+                            <a href="{{ url_for('admin_sessions.view', session_id=r.session_id) }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small">
+                {{ result.total }} session{{ '' if result.total == 1 else 's' }}
+                {% if result.pages > 1 %}&middot; page {{ result.page }} of {{ result.pages }}{% endif %}
+            </span>
+            {% if result.pages > 1 %}
+            <div class="btn-group btn-group-sm">
+                {% if page_links.prev %}<a href="{{ page_links.prev }}" class="btn btn-outline-secondary"><i class="bi bi-chevron-left"></i> Previous</a>
+                {% else %}<span class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i> Previous</span>{% endif %}
+                {% if page_links.next %}<a href="{{ page_links.next }}" class="btn btn-outline-secondary">Next <i class="bi bi-chevron-right"></i></a>
+                {% else %}<span class="btn btn-outline-secondary disabled">Next <i class="bi bi-chevron-right"></i></span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="card"><div class="card-body text-center text-muted py-5">
+        <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+        No sessions match these filters.
+        {% if active_filters %}<div class="mt-2"><a href="{{ url_for('admin_sessions.index', range='all') }}">Show all dates</a></div>{% endif %}
+    </div></div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    var form = document.getElementById('sessionFilters');
+    var range = document.getElementById('rangeSelect');
+    // Choosing a quick range replaces any custom dates
+    range.addEventListener('change', function () {
+        form.elements['date_from'].value = '';
+        form.elements['date_to'].value = '';
+        form.submit();
+    });
+})();
+</script>
+{% endblock %}
