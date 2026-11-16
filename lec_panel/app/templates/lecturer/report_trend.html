@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Trend Analysis - {{ report_data.class_info.class_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="fas fa-chart-line text-primary"></i>
+                        Attendance Trend Analysis
+                    </h2>
+                    <p class="text-muted mb-0">{{ report_data.class_info.class_name }} - {{ report_data.class_info.course_code }}</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time Period Selector -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3 align-items-end">
+                        <div class="col-md-8">
+                            <label for="days" class="form-label">Analysis Period</label>
+                            <select class="form-select" id="days" name="days" onchange="this.form.submit()">
+                                <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 Days</option>
+                                <option value="14" {% if days == 14 %}selected{% endif %}>Last 14 Days</option>
+                                <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 Days</option>
+                                <option value="60" {% if days == 60 %}selected{% endif %}>Last 60 Days</option>
+                                <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 Days</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-success" onclick="exportChart()">
+                                <i class="fas fa-download"></i> Export Chart
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trend Summary -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Trend Direction</h6>
+                    <h3 class="mb-0">
+                        {% if report_data.trend.direction == 'increasing' %}
+                            <i class="fas fa-arrow-up text-success"></i> Improving
+                        {% elif report_data.trend.direction == 'decreasing' %}
+                            <i class="fas fa-arrow-down text-danger"></i> Declining
+                        {% else %}
+                            <i class="fas fa-minus text-warning"></i> Stable
+                        {% endif %}
+                    </h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Average Attendance</h6>
+                    <h3 class="mb-0 text-primary">{{ "%.1f"|format(report_data.trend.average) }}%</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Highest Rate</h6>
+                    <h3 class="mb-0 text-success">{{ "%.1f"|format(report_data.trend.highest) }}%</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-1">Lowest Rate</h6>
+                    <h3 class="mb-0 text-danger">{{ "%.1f"|format(report_data.trend.lowest) }}%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trend Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-area"></i> Attendance Trend Over Time
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Details -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table"></i> Session-by-Session Breakdown
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="trendTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Session</th>
+                                    <th class="text-center">Total Students</th>
+                                    <th class="text-center">Present</th>
+                                    <th class="text-center">Late</th>
+                                    <th class="text-center">Absent</th>
+                                    <th class="text-center">Attendance Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in report_data.trend.data %}
+                                <tr>
+                                    <td>{{ item.date }}</td>
+                                    <td>{{ item.session_name }}</td>
+                                    <td class="text-center">{{ item.total_students }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success">{{ item.present }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-warning">{{ item.late }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-danger">{{ item.absent }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="progress" style="width: 100px; margin: 0 auto;">
+                                            <div class="progress-bar 
+                                                {% if item.attendance_rate >= 75 %}bg-success
+                                                {% elif item.attendance_rate >= 50 %}bg-warning
+                                                {% else %}bg-danger{% endif %}" 
+                                                role="progressbar" 
+                                                style="width: {{ item.attendance_rate }}%">
+                                                {{ "%.0f"|format(item.attendance_rate) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                        No session data available for the selected period
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTable
+    $('#trendTable').DataTable({
+        order: [[0, 'desc']], // Sort by date descending
+        pageLength: 25
+    });
+
+    // Prepare chart data
+    const labels = {{ report_data.trend.data|map(attribute='date')|list|tojson }};
+    const data = {{ report_data.trend.data|map(attribute='attendance_rate')|list|tojson }};
+
+    // Create trend chart
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    window.trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Attendance Rate (%)',
+                data: data,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+
+function exportChart() {
+    const canvas = document.getElementById('trendChart');
+    const url = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = 'attendance_trend.png';
+    link.href = url;
+    link.click();
+}
+</script>
+{% endblock %}

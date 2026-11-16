@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Changelog{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-code-branch me-2"></i>
+                    Changelog
+                </h2>
+                <a href="{{ url_for('help.index') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Back to Help Center
+                </a>
+            </div>
+
+            <p class="lead text-muted mb-4">
+                Track all system updates, new features, and improvements.
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Version 1.3.0 -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Version 1.3.0</h4>
+                        <span class="badge bg-light text-primary">Latest</span>
+                    </div>
+                    <small>Released: November 3, 2025</small>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-success">
+                        <i class="fas fa-plus-circle me-2"></i>New Features
+                    </h6>
+                    <ul>
+                        <li>Added comprehensive help center with FAQ, documentation, and tutorials</li>
+                        <li>Enhanced user profile management with activity log</li>
+                        <li>Implemented dark mode theme option</li>
+                        <li>Added bulk session creation feature</li>
+                        <li>New notification system with customizable preferences</li>
+                    </ul>
+
+                    <h6 class="text-info mt-3">
+                        <i class="fas fa-wrench me-2"></i>Improvements
+                    </h6>
+                    <ul>
+                        <li>Improved face recognition accuracy by 25%</li>
+                        <li>Faster report generation (50% speed increase)</li>
+                        <li>Enhanced mobile responsiveness</li>
+                        <li>Better error messages and user feedback</li>
+                        <li>Optimized database queries for better performance</li>
+                    </ul>
+
+                    <h6 class="text-warning mt-3">
+                        <i class="fas fa-bug me-2"></i>Bug Fixes
+                    </h6>
+                    <ul>
+                        <li>Fixed session creation date validation</li>
+                        <li>Resolved attendance correction timestamp issue</li>
+                        <li>Fixed export to Excel formatting</li>
+                        <li>Corrected timezone handling in reports</li>
+                        <li>Fixed notification badge count</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Version 1.2.5 -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Version 1.2.5</h4>
+                    <small class="text-muted">Released: October 15, 2025</small>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-success">
+                        <i class="fas fa-plus-circle me-2"></i>New Features
+                    </h6>
+                    <ul>
+                        <li>Added session dismissal functionality</li>
+                        <li>Implemented timetable management</li>
+                        <li>New attendance correction workflow</li>
+                    </ul>
+
+                    <h6 class="text-info mt-3">
+                        <i class="fas fa-wrench me-2"></i>Improvements
+                    </h6>
+                    <ul>
+                        <li>Enhanced dashboard widgets</li>
+                        <li>Improved search functionality</li>
+                        <li>Better loading indicators</li>
+                    </ul>
+
+                    <h6 class="text-warning mt-3">
+                        <i class="fas fa-bug me-2"></i>Bug Fixes
+                    </h6>
+                    <ul>
+                        <li>Fixed camera permission issues on Chrome</li>
+                        <li>Resolved session overlap detection</li>
+                        <li>Fixed student list sorting</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Version 1.2.0 -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Version 1.2.0</h4>
+                    <small class="text-muted">Released: September 1, 2025</small>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-success">
+                        <i class="fas fa-plus-circle me-2"></i>New Features
+                    </h6>
+                    <ul>
+                        <li>Live attendance tracking with real-time updates</li>
+                        <li>Advanced reporting with custom filters</li>
+                        <li>Export functionality (PDF, Excel, CSV)</li>
+                        <li>Activity logging system</li>
+                    </ul>
+
+                    <h6 class="text-info mt-3">
+                        <i class="fas fa-wrench me-2"></i>Improvements
+                    </h6>
+                    <ul>
+                        <li>Redesigned dashboard layout</li>
+                        <li>Faster page load times</li>
+                        <li>Improved accessibility</li>
+                    </ul>
+
+                    <h6 class="text-warning mt-3">
+                        <i class="fas fa-bug me-2"></i>Bug Fixes
+                    </h6>
+                    <ul>
+                        <li>Fixed date picker locale issues</li>
+                        <li>Resolved memory leak in face recognition</li>
+                        <li>Fixed report pagination</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Version 1.1.0 -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Version 1.1.0</h4>
+                    <small class="text-muted">Released: August 1, 2025</small>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-success">
+                        <i class="fas fa-plus-circle me-2"></i>New Features
+                    </h6>
+                    <ul>
+                        <li>Face recognition attendance system</li>
+                        <li>Session management dashboard</li>
+                        <li>Basic reporting functionality</li>
+                        <li>Email notifications</li>
+                    </ul>
+
+                    <h6 class="text-info mt-3">
+                        <i class="fas fa-wrench me-2"></i>Improvements
+                    </h6>
+                    <ul>
+                        <li>Enhanced security features</li>
+                        <li>Improved user interface</li>
+                        <li>Better mobile support</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Version 1.0.0 -->
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0">Version 1.0.0</h4>
+                    <small class="text-muted">Released: July 1, 2025</small>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-success">
+                        <i class="fas fa-rocket me-2"></i>Initial Release
+                    </h6>
+                    <ul>
+                        <li>Basic authentication system</li>
+                        <li>Manual attendance marking</li>
+                        <li>Class and student management</li>
+                        <li>Simple reports</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Coming Soon -->
+            <div class="card border-primary shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Coming Soon
+                    </h4>
+                    <small>Planned Features</small>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">
+                        <i class="fas fa-lightbulb me-2"></i>Upcoming Features
+                    </h6>
+                    <ul>
+                        <li>Mobile app for Android and iOS</li>
+                        <li>Student self-service portal</li>
+                        <li>Advanced analytics dashboard</li>
+                        <li>Integration with LMS systems</li>
+                        <li>Automated attendance reports via email</li>
+                        <li>Multi-language support</li>
+                        <li>Biometric integration (fingerprint, iris scan)</li>
+                        <li>AI-powered attendance prediction</li>
+                    </ul>
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Have a feature request? <a href="{{ url_for('help.contact') }}" class="alert-link">Let us know!</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Version Legend -->
+    <div class="row mt-4">
+        <div class="col-lg-8 mx-auto">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">Version Legend</h6>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <span class="badge bg-success me-2">Major</span>
+                            <small>X.0.0 - Major features</small>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="badge bg-info me-2">Minor</span>
+                            <small>0.X.0 - New features</small>
+                        </div>
+                        <div class="col-md-4">
+                            <span class="badge bg-warning me-2">Patch</span>
+                            <small>0.0.X - Bug fixes</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
+}
+
+.card-header h4 {
+    font-size: 1.5rem;
+}
+
+.card-body ul {
+    margin-bottom: 0;
+}
+
+.card-body ul li {
+    margin-bottom: 0.5rem;
+}
+
+h6 {
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

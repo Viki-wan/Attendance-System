@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Support{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-envelope me-2"></i>
+                    Contact Support
+                </h2>
+                <a href="{{ url_for('help.index') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Back to Help Center
+                </a>
+            </div>
+
+            <!-- Contact Information Cards -->
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card text-center h-100">
+                        <div class="card-body">
+                            <i class="fas fa-envelope fa-3x text-primary mb-3"></i>
+                            <h5>Email Support</h5>
+                            <p class="text-muted">{{ support_email }}</p>
+                            <small class="text-muted">Response within 24 hours</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card text-center h-100">
+                        <div class="card-body">
+                            <i class="fas fa-phone fa-3x text-success mb-3"></i>
+                            <h5>Phone Support</h5>
+                            <p class="text-muted">+254 700 000 000</p>
+                            <small class="text-muted">Mon-Fri, 8AM-5PM</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card text-center h-100">
+                        <div class="card-body">
+                            <i class="fas fa-book fa-3x text-info mb-3"></i>
+                            <h5>Documentation</h5>
+                            <p class="text-muted">Self-help guides</p>
+                            <a href="{{ url_for('help.documentation') }}" class="btn btn-sm btn-outline-info">
+                                View Docs
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Form -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-paper-plane me-2"></i>
+                        Submit a Support Request
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="contactForm">
+                        <!-- Subject -->
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">
+                                Subject <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="subject" 
+                                   name="subject" 
+                                   placeholder="Brief description of your issue"
+                                   required>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="mb-3">
+                            <label for="category" class="form-label">
+                                Category <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="category" name="category" required>
+                                <option value="">-- Select Category --</option>
+                                <option value="technical">Technical Issue</option>
+                                <option value="account">Account & Login</option>
+                                <option value="sessions">Session Management</option>
+                                <option value="attendance">Attendance Tracking</option>
+                                <option value="reports">Reports & Analytics</option>
+                                <option value="face-recognition">Face Recognition</option>
+                                <option value="feature-request">Feature Request</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Priority -->
+                        <div class="mb-3">
+                            <label for="priority" class="form-label">
+                                Priority <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="priority" name="priority" required>
+                                <option value="low">Low - General inquiry</option>
+                                <option value="normal" selected>Normal - Standard support</option>
+                                <option value="high">High - Urgent issue</option>
+                                <option value="urgent">Urgent - System down</option>
+                            </select>
+                            <div class="form-text">
+                                Please only select "Urgent" for critical system failures
+                            </div>
+                        </div>
+
+                        <!-- Message -->
+                        <div class="mb-3">
+                            <label for="message" class="form-label">
+                                Message <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" 
+                                      id="message" 
+                                      name="message" 
+                                      rows="6" 
+                                      placeholder="Please describe your issue in detail. Include any error messages, steps to reproduce, and screenshots if applicable."
+                                      required></textarea>
+                            <div class="form-text">
+                                <span id="charCount">0</span>/1000 characters
+                            </div>
+                        </div>
+
+                        <!-- Contact Preferences -->
+                        <div class="mb-3">
+                            <label class="form-label">
+                                Preferred Contact Method
+                            </label>
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="radio" 
+                                       name="contact_method" 
+                                       id="contactEmail" 
+                                       value="email" 
+                                       checked>
+                                <label class="form-check-label" for="contactEmail">
+                                    Email ({{ current_user.email if current_user.email else 'Not set' }})
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="radio" 
+                                       name="contact_method" 
+                                       id="contactPhone" 
+                                       value="phone">
+                                <label class="form-check-label" for="contactPhone">
+                                    Phone ({{ current_user.phone }})
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- File Attachment -->
+                        <div class="mb-3">
+                            <label for="attachment" class="form-label">
+                                Attachment (Optional)
+                            </label>
+                            <input class="form-control" 
+                                   type="file" 
+                                   id="attachment" 
+                                   name="attachment"
+                                   accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
+                            <div class="form-text">
+                                Maximum file size: 5MB. Accepted formats: Images, PDF, Word documents
+                            </div>
+                        </div>
+
+                        <!-- User Info (pre-filled) -->
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <h6 class="card-title">Your Information</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Name:</strong> {{ current_user.instructor_name }}</p>
+                                        <p class="mb-1"><strong>ID:</strong> {{ current_user.instructor_id }}</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Email:</strong> {{ current_user.email or 'Not set' }}</p>
+                                        <p class="mb-1"><strong>Faculty:</strong> {{ current_user.faculty or 'Not set' }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Terms -->
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" 
+                                   class="form-check-input" 
+                                   id="termsAgree" 
+                                   required>
+                            <label class="form-check-label" for="termsAgree">
+                                I agree that my information may be used to provide support
+                            </label>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="reset" class="btn btn-outline-secondary">
+                                <i class="fas fa-redo me-2"></i>
+                                Reset Form
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>
+                                Submit Request
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- FAQ Suggestion -->
+            <div class="alert alert-info mt-4">
+                <i class="fas fa-lightbulb me-2"></i>
+                <strong>Before submitting:</strong> Check our 
+                <a href="{{ url_for('help.faq') }}" class="alert-link">Frequently Asked Questions</a> 
+                - your answer might already be there!
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+textarea {
+    resize: vertical;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.text-danger {
+    font-weight: bold;
+}
+</style>
+
+<script>
+// Character counter for message
+const messageTextarea = document.getElementById('message');
+const charCount = document.getElementById('charCount');
+
+messageTextarea.addEventListener('input', function() {
+    const count = this.value.length;
+    charCount.textContent = count;
+    
+    if (count > 1000) {
+        charCount.classList.add('text-danger');
+        charCount.classList.remove('text-muted');
+    } else {
+        charCount.classList.add('text-muted');
+        charCount.classList.remove('text-danger');
+    }
+});
+
+// File size validation
+document.getElementById('attachment').addEventListener('change', function() {
+    const file = this.files[0];
+    if (file && file.size > 5 * 1024 * 1024) { // 5MB
+        alert('File size must be less than 5MB');
+        this.value = '';
+    }
+});
+
+// Form submission
+document.getElementById('contactForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+    
+    // Simulate form submission (replace with actual AJAX call)
+    setTimeout(function() {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        
+        // Show success message
+        alert('Your support request has been submitted successfully! We will get back to you soon.');
+        
+        // Reset form
+        document.getElementById('contactForm').reset();
+        charCount.textContent = '0';
+    }, 1500);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Update Session - {{ session.class.class_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-pencil-square"></i> Update Session</h2>
+                <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Session
+                </a>
+            </div>
+
+            <!-- Current Session Info -->
+            <div class="alert alert-info mb-4">
+                <strong>Current Session:</strong><br>
+                {{ session.class.class_name }} - {{ session.class.course.course_name }}<br>
+                {{ session.date }} from {{ session.start_time }} to {{ session.end_time }}
+            </div>
+
+            <!-- Warning for Ongoing/Completed -->
+            {% if session.status in ['ongoing', 'completed'] %}
+            <div class="alert alert-warning mb-4">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Warning:</strong> This session is {{ session.status }}. 
+                Changing the time may affect attendance records.
+            </div>
+            {% endif %}
+
+            <!-- Form Card -->
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="POST" 
+                          action="{{ url_for('lecturer_sessions.update_session', session_id=session.session_id) }}" 
+                          id="updateSessionForm">
+                        
+                        <!-- Class Selection (Disabled for ongoing/completed) -->
+                        <div class="mb-4">
+                            <label for="class_id" class="form-label fw-bold">
+                                Class <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" 
+                                    id="class_id" 
+                                    name="class_id" 
+                                    required
+                                    {% if session.status in ['ongoing', 'completed'] %}disabled{% endif %}
+                                    onchange="checkConflicts()">
+                                {% for class in classes %}
+                                <option value="{{ class.class_id }}" 
+                                        {% if class.class_id == session.class_id %}selected{% endif %}>
+                                    {{ class.class_name }} - {{ class.course.course_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if session.status in ['ongoing', 'completed'] %}
+                            <div class="form-text text-warning">
+                                Class cannot be changed for ongoing or completed sessions
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Date -->
+                        <div class="mb-4">
+                            <label for="date" class="form-label fw-bold">
+                                Date <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   id="date" 
+                                   name="date" 
+                                   required
+                                   value="{{ session.date }}"
+                                   {% if session.status == 'completed' %}disabled{% endif %}
+                                   onchange="checkConflicts()">
+                            {% if session.status == 'completed' %}
+                            <div class="form-text text-warning">
+                                Date cannot be changed for completed sessions
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Time Range -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="start_time" class="form-label fw-bold">
+                                    Start Time <span class="text-danger">*</span>
+                                </label>
+                                <input type="time" 
+                                       class="form-control" 
+                                       id="start_time" 
+                                       name="start_time" 
+                                       required
+                                       value="{{ session.start_time }}"
+                                       onchange="checkConflicts()">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_time" class="form-label fw-bold">
+                                    End Time <span class="text-danger">*</span>
+                                </label>
+                                <input type="time" 
+                                       class="form-control" 
+                                       id="end_time" 
+                                       name="end_time" 
+                                       required
+                                       value="{{ session.end_time }}"
+                                       onchange="checkConflicts()">
+                            </div>
+                        </div>
+
+                        <!-- Conflict Warning -->
+                        <div id="conflictWarning" class="alert alert-danger d-none mb-4">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Conflict Detected!</strong>
+                            <div id="conflictDetails"></div>
+                        </div>
+
+                        <!-- Session Notes -->
+                        <div class="mb-4">
+                            <label for="session_notes" class="form-label fw-bold">
+                                Session Notes
+                            </label>
+                            <textarea class="form-control" 
+                                      id="session_notes" 
+                                      name="session_notes" 
+                                      rows="3">{{ session.session_notes or '' }}</textarea>
+                        </div>
+
+                        <!-- Status Update (Only for scheduled sessions) -->
+                        {% if session.status == 'scheduled' %}
+                        <div class="mb-4">
+                            <label for="status" class="form-label fw-bold">
+                                Status
+                            </label>
+                            <select class="form-select" id="status" name="status">
+                                <option value="scheduled" selected>Scheduled</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                            <div class="form-text">
+                                You can cancel the session here, or use the Dismiss option to reschedule
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Change Summary -->
+                        <div class="card bg-light mb-4">
+                            <div class="card-body">
+                                <h6 class="card-title">Changes Summary</h6>
+                                <div id="changesSummary" class="small text-muted">
+                                    No changes detected
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
+                               class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="bi bi-check-circle"></i> Update Session
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Warning Card -->
+            <div class="card mt-4 border-warning">
+                <div class="card-body">
+                    <h6 class="card-title text-warning">
+                        <i class="bi bi-exclamation-triangle"></i> Important Notes
+                    </h6>
+                    <ul class="mb-0 small">
+                        <li>Changing the date or time may affect attendance records</li>
+                        <li>If students have already been marked, their attendance will remain</li>
+                        <li>For major changes, consider dismissing and creating a new session</li>
+                        <li>System will check for conflicts with other sessions</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Original values for change detection
+const originalValues = {
+    class_id: '{{ session.class_id }}',
+    date: '{{ session.date }}',
+    start_time: '{{ session.start_time }}',
+    end_time: '{{ session.end_time }}',
+    session_notes: '{{ session.session_notes or '' }}',
+    status: '{{ session.status }}'
+};
+
+function checkConflicts() {
+    const classId = document.getElementById('class_id').value;
+    const date = document.getElementById('date').value;
+    const startTime = document.getElementById('start_time').value;
+    const endTime = document.getElementById('end_time').value;
+
+    // Update changes summary
+    updateChangesSummary();
+
+    // Validate end time is after start time
+    if (startTime && endTime && startTime >= endTime) {
+        document.getElementById('conflictWarning').classList.remove('d-none');
+        document.getElementById('conflictDetails').innerHTML = 
+            '<p class="mb-0">End time must be after start time</p>';
+        document.getElementById('submitBtn').disabled = true;
+        return;
+    }
+
+    if (!classId || !date || !startTime || !endTime) {
+        document.getElementById('conflictWarning').classList.add('d-none');
+        document.getElementById('submitBtn').disabled = false;
+        return;
+    }
+
+    // Check for conflicts via AJAX
+    fetch('/lecturer/sessions/api/check-conflict', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            class_id: classId,
+            date: date,
+            start_time: startTime,
+            end_time: endTime,
+            exclude_session_id: {{ session.session_id }}
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.has_conflict) {
+            document.getElementById('conflictWarning').classList.remove('d-none');
+            let html = '<ul class="mb-0">';
+            data.conflicts.forEach(conflict => {
+                html += `<li>${conflict}</li>`;
+            });
+            html += '</ul>';
+            document.getElementById('conflictDetails').innerHTML = html;
+            document.getElementById('submitBtn').disabled = true;
+        } else {
+            document.getElementById('conflictWarning').classList.add('d-none');
+            document.getElementById('submitBtn').disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error checking conflicts:', error);
+        document.getElementById('conflictWarning').classList.add('d-none');
+        document.getElementById('submitBtn').disabled = false;
+    });
+}
+
+function updateChangesSummary() {
+    const changes = [];
+    
+    const currentValues = {
+        class_id: document.getElementById('class_id').value,
+        date: document.getElementById('date').value,
+        start_time: document.getElementById('start_time').value,
+        end_time: document.getElementById('end_time').value,
+        session_notes: document.getElementById('session_notes').value,
+        status: document.getElementById('status')?.value || originalValues.status
+    };
+
+    if (currentValues.class_id !== originalValues.class_id) {
+        const select = document.getElementById('class_id');
+        const newClass = select.options[select.selectedIndex].text;
+        changes.push(`<strong>Class:</strong> Changed to ${newClass}`);
+    }
+
+    if (currentValues.date !== originalValues.date) {
+        changes.push(`<strong>Date:</strong> ${originalValues.date} â†' ${currentValues.date}`);
+    }
+
+    if (currentValues.start_time !== originalValues.start_time) {
+        changes.push(`<strong>Start Time:</strong> ${originalValues.start_time} â†' ${currentValues.start_time}`);
+    }
+
+    if (currentValues.end_time !== originalValues.end_time) {
+        changes.push(`<strong>End Time:</strong> ${originalValues.end_time} â†' ${currentValues.end_time}`);
+    }
+
+    if (currentValues.session_notes !== originalValues.session_notes) {
+        changes.push(`<strong>Notes:</strong> Updated`);
+    }
+
+    if (currentValues.status !== originalValues.status) {
+        changes.push(`<strong>Status:</strong> ${originalValues.status} â†' ${currentValues.status}`);
+    }
+
+    const summaryDiv = document.getElementById('changesSummary');
+    if (changes.length > 0) {
+        summaryDiv.innerHTML = changes.join('<br>');
+        summaryDiv.className = 'small';
+    } else {
+        summaryDiv.innerHTML = 'No changes detected';
+        summaryDiv.className = 'small text-muted';
+    }
+}
+
+// Add change listeners
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('class_id')?.addEventListener('change', updateChangesSummary);
+    document.getElementById('date')?.addEventListener('change', updateChangesSummary);
+    document.getElementById('start_time')?.addEventListener('change', updateChangesSummary);
+    document.getElementById('end_time')?.addEventListener('change', updateChangesSummary);
+    document.getElementById('session_notes')?.addEventListener('input', updateChangesSummary);
+    document.getElementById('status')?.addEventListener('change', updateChangesSummary);
+});
+</script>
+{% endblock %}

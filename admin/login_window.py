@@ -1,11 +1,19 @@
 from PyQt5.QtWidgets import (QMainWindow, QLabel, QLineEdit, QPushButton, QVBoxLayout, 
                             QApplication, QWidget, QMessageBox, QFrame, QCheckBox,
-                            QProgressBar, QHBoxLayout, QDialog, QGridLayout, QInputDialog)
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont, QColor
+                            QProgressBar, QHBoxLayout, QDialog, QGridLayout)  # type: ignore
+from PyQt5.QtCore import Qt  # type: ignore
+from PyQt5.QtGui import QFont  # type: ignore
+import os
+import sys
+
+# Ensure the project root is on sys.path so that `config` can be imported
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from config.utils_constants import DATABASE_PATH
 from admin.login_attempt_tracker import LoginAttemptTracker
-from students.student_dashboard import StudentDashboard
 import sqlite3
 import hashlib
 import bcrypt
@@ -244,6 +252,10 @@ class LoginWindow(QMainWindow):
 
         self.login_attempt_tracker = LoginAttemptTracker()
 
+        # Initialize attributes that are later assigned in other methods
+        self.student_dashboard = None
+        self.admin_window = None
+
         self.setStyleSheet(QApplication.instance().styleSheet())  # ✅ Inherit global QSS
 
         self.dark_mode_enabled = get_dark_mode_setting()
@@ -284,12 +296,7 @@ class LoginWindow(QMainWindow):
         self.show_password_checkbox.stateChanged.connect(self.toggle_password_visibility)
         container_layout.addWidget(self.show_password_checkbox)
 
-        # Forgot Password Link
-        self.forgot_password_link = QLabel("<a href='#'>Forgot Password?</a>")
-        self.forgot_password_link.setAlignment(Qt.AlignRight)
-        self.forgot_password_link.setOpenExternalLinks(False)
-        self.forgot_password_link.linkActivated.connect(self.handle_forgot_password)
-        container_layout.addWidget(self.forgot_password_link)
+        # Removed student-specific "Forgot Password" flow
 
         # Login Button
         self.login_button = QPushButton("Login", self)
@@ -329,118 +336,50 @@ class LoginWindow(QMainWindow):
         cursor = conn.cursor()
         
         try:
-            # Admin authentication
+            # Admin authentication only
             cursor.execute("SELECT password FROM admin WHERE username = ?", (username,))
             admin_result = cursor.fetchone()
 
-            if admin_result:
-                stored_hash = admin_result[0]
-                # Check if password matches using bcrypt
-                if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
+            if not admin_result:
+                QMessageBox.warning(self, "Login Failed", "Incorrect username or password.")
+                self.handle_failed_login(username)
+                return
+
+            stored_hash_text = admin_result[0] or ""
+            # Normalize to string and trim whitespace to avoid subtle mismatches
+            if isinstance(stored_hash_text, (bytes, bytearray)):
+                stored_hash_text = stored_hash_text.decode('utf-8', errors='ignore')
+            stored_hash_text = str(stored_hash_text).strip()
+
+            if stored_hash_text.startswith(('$2a$', '$2b$', '$2y$')):
+                stored_hash_bytes = stored_hash_text.encode('utf-8')
+                if bcrypt.checkpw(password.encode('utf-8'), stored_hash_bytes):
                     self.open_admin_dashboard()
                     self.login_attempt_tracker.reset_attempts(username)
-                    return
                 else:
                     self.handle_failed_login(username)
-                    return
-                    
-            # Student authentication
-            cursor.execute("SELECT password, student_id FROM students WHERE student_id = ?", (username,))
-            student_result = cursor.fetchone()
-
-            if student_result:
-                stored_password = student_result[0]
-                student_id = student_result[1]
-
-                # First-time login handling - check if password equals student ID or is empty
-                if not stored_password or (stored_password == hashlib.sha256(student_id.encode()).hexdigest()):
-                    # Handle seamless first-time login
-                    if self.handle_first_time_login(student_id):
-                        # If password setup was successful, proceed to dashboard
-                        self.open_student_dashboard(student_id)
-                        self.close()
-                    return
-                    
-                # Regular password check - handle both bcrypt and legacy SHA-256 
-                if stored_password.startswith(b'$2b$') or stored_password.startswith('$2b$'):
-                    # Bcrypt password
-                    if isinstance(stored_password, str):
-                        stored_password = stored_password.encode('utf-8')
-                    
-                    if bcrypt.checkpw(password.encode('utf-8'), stored_password):
-                        self.open_student_dashboard(student_id)
-                        self.login_attempt_tracker.reset_attempts(username)
-                        self.close()
-                    else:
-                        self.handle_failed_login(username)
+            # Legacy SHA-256 hex string
+            elif len(stored_hash_text) == 64 and all(c in '0123456789abcdef' for c in stored_hash_text.lower()):
+                hashed_input = hashlib.sha256(password.encode('utf-8')).hexdigest()
+                if hashed_input.lower() == stored_hash_text.lower():
+                    self.open_admin_dashboard()
+                    self.login_attempt_tracker.reset_attempts(username)
                 else:
-                    # Legacy SHA-256 password
-                    hashed_input = hashlib.sha256(password.encode()).hexdigest()
-                    if stored_password == hashed_input:
-                        self.open_student_dashboard(student_id)
-                        self.login_attempt_tracker.reset_attempts(username)
-                        # Optional: Migrate to bcrypt
-                        self.migrate_to_bcrypt(student_id, password)
-                        self.close()
-                    else:
-                        self.handle_failed_login(username)
+                    self.handle_failed_login(username)
+            # Plaintext fallback (not recommended, but handled for legacy db)
             else:
-                QMessageBox.warning(self, "Login Failed", "User not found.")
-                self.handle_failed_login(username)
+                if password == stored_hash_text:
+                    self.open_admin_dashboard()
+                    self.login_attempt_tracker.reset_attempts(username)
+                else:
+                    self.handle_failed_login(username)
 
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Database Error", f"An error occurred: {str(e)}")
         finally:
             conn.close()
 
-    def migrate_to_bcrypt(self, student_id, plain_password):
-        """Migrate old SHA-256 password to bcrypt for better security"""
-        try:
-            bcrypt_hash = bcrypt.hashpw(plain_password.encode('utf-8'), bcrypt.gensalt())
-            
-            conn = sqlite3.connect(DATABASE_PATH)
-            cursor = conn.cursor()
-            cursor.execute("UPDATE students SET password = ? WHERE student_id = ?", 
-                         (bcrypt_hash, student_id))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            # Silently handle errors - this is just an upgrade, not critical
-            pass
-    
-    def handle_first_time_login(self, student_id):
-        """Handle first-time login with a better UX flow"""
-        # Show information message
-        QMessageBox.information(self, "Welcome",
-            "Welcome to the attendance system! As this is your first login, " 
-            "you'll need to create a secure password.")
-            
-        # Show password dialog
-        password_dialog = PasswordDialog(self, first_time=True)
-        if password_dialog.exec_():
-            new_password = password_dialog.get_password()
-            
-            # Hash the password with bcrypt
-            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
-            
-            # Save to database
-            conn = sqlite3.connect(DATABASE_PATH)
-            cursor = conn.cursor()
-            cursor.execute("UPDATE students SET password = ? WHERE student_id = ?", 
-                         (hashed_password, student_id))
-            conn.commit()
-            conn.close()
-            
-            QMessageBox.information(self, "Password Created", 
-                "Your password has been created successfully! You'll now be logged in.")
-            
-            self.login_attempt_tracker.reset_attempts(student_id)
-            return True
-        return False
-
-    def open_student_dashboard(self, username):
-        self.student_dashboard = StudentDashboard(username)  # Create dashboard instance
-        self.student_dashboard.show()  # Show dashboard
+    # Student-related flows removed
 
     def handle_failed_login(self, username):
         """Handle and display failed login attempt."""
@@ -456,31 +395,7 @@ class LoginWindow(QMainWindow):
             QMessageBox.warning(self, "Account Locked", 
                 "Too many failed attempts. Please wait 5 minutes before trying again.")
     
-    def handle_forgot_password(self):
-        """Handle forgot password requests"""
-        student_id, ok = QInputDialog.getText(self, "Forgot Password", 
-                                             "Please enter your Student ID:")
-        if ok and student_id:
-            # Verify student exists
-            conn = sqlite3.connect(DATABASE_PATH)
-            cursor = conn.cursor()
-            cursor.execute("SELECT name, email FROM students WHERE student_id = ?", (student_id,))
-            result = cursor.fetchone()
-            conn.close()
-            
-            if result:
-                name, email = result
-                # In a real implementation, you would:
-                # 1. Generate a temporary code or token
-                # 2. Email it to the student's address
-                # 3. Allow them to reset their password with the token
-                
-                QMessageBox.information(self, "Password Reset", 
-                    f"A password reset link has been sent to {email}.\n\n"
-                    f"Please check your email and follow the instructions.")
-            else:
-                QMessageBox.warning(self, "Student Not Found", 
-                    "No student with that ID was found in our records.")
+    # Student-specific forgot password removed
     
     def open_admin_dashboard(self):
         """Opens the Admin Dashboard after successful login."""

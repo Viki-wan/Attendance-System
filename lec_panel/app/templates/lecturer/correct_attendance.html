@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+
+{% block title %}Correct Attendance - {{ session.class.class_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-pencil-square"></i> Correct Attendance</h2>
+            <p class="text-muted mb-0">
+                <strong>{{ session.class.class_name }}</strong> - {{ session.class.course.course_name }}<br>
+                {{ session.date }} | {{ session.start_time }} - {{ session.end_time }}
+            </p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
+               class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Session
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h3 class="text-success mb-0" id="presentCount">{{ statistics.present }}</h3>
+                    <small class="text-muted">Present</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h3 class="text-warning mb-0" id="lateCount">{{ statistics.late }}</h3>
+                    <small class="text-muted">Late</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h3 class="text-danger mb-0" id="absentCount">{{ statistics.absent }}</h3>
+                    <small class="text-muted">Absent</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-secondary">
+                <div class="card-body text-center">
+                    <h3 class="text-secondary mb-0" id="excusedCount">{{ statistics.excused or 0 }}</h3>
+                    <small class="text-muted">Excused</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-lightning"></i> Bulk Actions</h5>
+            <div>
+                <span class="text-muted">Selected: <strong id="selectedCount">0</strong></span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-success" onclick="bulkMark('Present')">
+                    <i class="bi bi-check-circle"></i> Mark Present
+                </button>
+                <button type="button" class="btn btn-outline-warning" onclick="bulkMark('Late')">
+                    <i class="bi bi-clock"></i> Mark Late
+                </button>
+                <button type="button" class="btn btn-outline-danger" onclick="bulkMark('Absent')">
+                    <i class="bi bi-x-circle"></i> Mark Absent
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="bulkMark('Excused')">
+                    <i class="bi bi-journal-text"></i> Mark Excused
+                </button>
+            </div>
+            <button type="button" class="btn btn-outline-primary ms-3" onclick="selectAll()">
+                <i class="bi bi-check-all"></i> Select All
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="deselectAll()">
+                <i class="bi bi-x"></i> Deselect All
+            </button>
+        </div>
+    </div>
+
+    <!-- Students Table -->
+    <div class="card shadow">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-people"></i> Students ({{ students|length }})</h5>
+            <div>
+                <!-- Filter -->
+                <select class="form-select form-select-sm d-inline-block w-auto" id="statusFilter" onchange="filterStudents()">
+                    <option value="all">All Students</option>
+                    <option value="Present">Present</option>
+                    <option value="Late">Late</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Excused">Excused</option>
+                    <option value="unmarked">Not Marked</option>
+                </select>
+                
+                <!-- Search -->
+                <input type="text" 
+                       class="form-control form-control-sm d-inline-block w-auto ms-2" 
+                       id="searchInput" 
+                       placeholder="Search students..."
+                       onkeyup="filterStudents()">
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="studentsTable">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            </th>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Current Status</th>
+                            <th>Marked At</th>
+                            <th>Method</th>
+                            <th>Actions</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr class="student-row" 
+                            data-student-id="{{ student.student_id }}"
+                            data-status="{{ student.attendance_record.status if student.attendance_record else 'unmarked' }}">
+                            <td>
+                                <input type="checkbox" 
+                                       class="student-checkbox" 
+                                       value="{{ student.student_id }}">
+                            </td>
+                            <td>{{ student.student_id }}</td>
+                            <td>
+                                <strong>{{ student.fname }} {{ student.lname }}</strong><br>
+                                <small class="text-muted">{{ student.email }}</small>
+                            </td>
+                            <td>
+                                <span class="status-badge">
+                                    {% if student.attendance_record %}
+                                        {% if student.attendance_record.status == 'Present' %}
+                                            <span class="badge bg-success">Present</span>
+                                        {% elif student.attendance_record.status == 'Late' %}
+                                            <span class="badge bg-warning">Late</span>
+                                        {% elif student.attendance_record.status == 'Absent' %}
+                                            <span class="badge bg-danger">Absent</span>
+                                        {% elif student.attendance_record.status == 'Excused' %}
+                                            <span class="badge bg-secondary">Excused</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-light text-dark">Not Marked</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td class="marked-time">
+                                {% if student.attendance_record %}
+                                    {{ student.attendance_record.timestamp.strftime('%I:%M %p') }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="method-icon">
+                                {% if student.attendance_record %}
+                                    {% if student.attendance_record.method == 'face_recognition' %}
+                                        <i class="bi bi-camera text-primary" title="Face Recognition"></i>
+                                    {% elif student.attendance_record.method == 'manual' %}
+                                        <i class="bi bi-pencil text-info" title="Manual"></i>
+                                    {% endif %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" 
+                                            class="btn btn-outline-success btn-sm" 
+                                            onclick="markStudent('{{ student.student_id }}', 'Present')"
+                                            title="Present">
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-outline-warning btn-sm" 
+                                            onclick="markStudent('{{ student.student_id }}', 'Late')"
+                                            title="Late">
+                                        <i class="bi bi-clock"></i>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-outline-danger btn-sm" 
+                                            onclick="markStudent('{{ student.student_id }}', 'Absent')"
+                                            title="Absent">
+                                        <i class="bi bi-x"></i>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-outline-secondary btn-sm" 
+                                            onclick="markStudent('{{ student.student_id }}', 'Excused')"
+                                            title="Excused">
+                                        <i class="bi bi-journal"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                <button type="button" 
+                                        class="btn btn-sm btn-outline-info" 
+                                        onclick="addNote('{{ student.student_id }}')">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Changes Button -->
+    <div class="text-center mt-4">
+        <button type="button" class="btn btn-primary btn-lg" onclick="saveChanges()">
+            <i class="bi bi-save"></i> Save All Changes
+        </button>
+    </div>
+</div>
+
+<!-- Add Note Modal -->
+<div class="modal fade" id="noteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="noteStudentId">
+                <div class="mb-3">
+                    <label for="noteText" class="form-label">Note:</label>
+                    <textarea class="form-control" id="noteText" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveNote()">Save Note</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let changedStudents = new Set();
+
+function markStudent(studentId, status) {
+    fetch(`/lecturer/attendance/{{ session.session_id }}/manual-mark`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            student_id: studentId,
+            status: status,
+            method: 'manual'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateStudentRow(studentId, status);
+            changedStudents.add(studentId);
+            updateStatistics();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error marking attendance');
+    });
+}
+
+function bulkMark(status) {
+    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+    const studentIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (studentIds.length === 0) {
+        alert('Please select at least one student');
+        return;
+    }
+
+    if (!confirm(`Mark ${studentIds.length} student(s) as ${status}?`)) {
+        return;
+    }
+
+    fetch(`/lecturer/attendance/{{ session.session_id }}/bulk-mark`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            student_ids: studentIds,
+            status: status,
+            method: 'manual'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            studentIds.forEach(id => {
+                updateStudentRow(id, status);
+                changedStudents.add(id);
+            });
+            updateStatistics();
+            deselectAll();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error marking attendance');
+    });
+}
+
+function updateStudentRow(studentId, status) {
+    const row = document.querySelector(`tr[data-student-id="${studentId}"]`);
+    const badgeMap = {
+        'Present': '<span class="badge bg-success">Present</span>',
+        'Late': '<span class="badge bg-warning">Late</span>',
+        'Absent': '<span class="badge bg-danger">Absent</span>',
+        'Excused': '<span class="badge bg-secondary">Excused</span>'
+    };
+    
+    row.querySelector('.status-badge').innerHTML = badgeMap[status];
+    row.querySelector('.marked-time').textContent = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    row.querySelector('.method-icon').innerHTML = '<i class="bi bi-pencil text-info" title="Manual"></i>';
+    row.dataset.status = status;
+}
+
+function updateStatistics() {
+    fetch(`/lecturer/attendance/{{ session.session_id }}/stats`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('presentCount').textContent = data.statistics.present;
+                document.getElementById('lateCount').textContent = data.statistics.late;
+                document.getElementById('absentCount').textContent = data.statistics.absent;
+                document.getElementById('excusedCount').textContent = data.statistics.excused || 0;
+            }
+        });
+}
+
+function filterStudents() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('.student-row');
+    
+    rows.forEach(row => {
+        const status = row.dataset.status;
+        const text = row.textContent.toLowerCase();
+        
+        let statusMatch = statusFilter === 'all' || status === statusFilter;
+        let searchMatch = searchText === '' || text.includes(searchText);
+        
+        if (statusMatch && searchMatch) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function selectAll() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => {
+        if (cb.closest('tr').style.display !== 'none') {
+            cb.checked = true;
+        }
+    });
+    updateSelectedCount();
+}
+
+function deselectAll() {
+    document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAllCheckbox').checked = false;
+    updateSelectedCount();
+}
+
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAllCheckbox').checked;
+    document.querySelectorAll('.student-checkbox').forEach(cb => {
+        if (cb.closest('tr').style.display !== 'none') {
+            cb.checked = checked;
+        }
+    });
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.student-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = count;
+}
+
+function addNote(studentId) {
+    document.getElementById('noteStudentId').value = studentId;
+    document.getElementById('noteText').value = '';
+    new bootstrap.Modal(document.getElementById('noteModal')).show();
+}
+
+function saveNote() {
+    const studentId = document.getElementById('noteStudentId').value;
+    const note = document.getElementById('noteText').value;
+    
+    fetch(`/lecturer/attendance/{{ session.session_id }}/add-note`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            student_id: studentId,
+            notes: note
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('noteModal')).hide();
+            alert('Note added successfully');
+        } else {
+            alert('Error: ' + data.message);
+        }
+    });
+}
+
+function saveChanges() {
+    if (changedStudents.size === 0) {
+        alert('No changes to save');
+        return;
+    }
+    
+    alert(`${changedStudents.size} changes saved successfully`);
+    changedStudents.clear();
+}
+
+// Update selected count on checkbox change
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('student-checkbox')) {
+        updateSelectedCount();
+    }
+});
+</script>
+{% endblock %}

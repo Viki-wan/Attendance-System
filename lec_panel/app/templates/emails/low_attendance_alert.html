@@ -1,0 +1,52 @@
+{% extends 'emails/base.html' %}
+
+{% block header_title %}⚠️ Low Attendance Alert{% endblock %}
+
+{% block content %}
+<p>Hello <strong>{{ instructor.instructor_name }}</strong>,</p>
+
+<div class="danger-box">
+    <h3 style="margin-top: 0;">⚠️ Attendance Alert</h3>
+    <p>Student <strong>{{ student.full_name }}</strong> ({{ student.student_id }}) has low attendance in <strong>{{ course_code }}</strong>.</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-item">
+        <div class="stat-value">{{ stats.total_sessions }}</div>
+        <div class="stat-label">Total Sessions</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ stats.present }}</div>
+        <div class="stat-label">Present</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value">{{ stats.absent }}</div>
+        <div class="stat-label">Absent</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" style="color: #dc3545;">{{ stats.attendance_rate }}%</div>
+        <div class="stat-label">Attendance Rate</div>
+    </div>
+</div>
+
+<div class="warning-box">
+    <p>⚠️ This is below the required threshold of <strong>75%</strong>.</p>
+</div>
+
+<div class="info-box">
+    <h4>Student Contact Information:</h4>
+    <p><strong>Email:</strong> {{ student.email or 'Not provided' }}</p>
+    <p><strong>Phone:</strong> {{ student.phone or 'Not provided' }}</p>
+</div>
+
+<p>Please take appropriate action to address this attendance issue.</p>
+
+<p style="text-align: center;">
+    <a href="{{ url_for('reports.student_attendance', student_id=student.student_id, _external=True) }}" class="button">
+        View Full Attendance Record
+    </a>
+</p>
+
+<p>Best regards,<br>
+<strong>{{ app_name }} Team</strong></p>
+{% endblock %}

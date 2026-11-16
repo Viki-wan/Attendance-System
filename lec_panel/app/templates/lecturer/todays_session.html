@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Today's Sessions{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-calendar-day"></i> Today's Sessions</h2>
+            <p class="text-muted">{{ current_date }} ({{ current_day }})</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('lecturer_sessions.list_sessions') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> All Sessions
+            </a>
+        </div>
+    </div>
+
+    {% if sessions %}
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-info">
+                    <div class="card-body text-center">
+                        <h3 class="text-info mb-0">{{ scheduled_count }}</h3>
+                        <small class="text-muted">Scheduled</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning">
+                    <div class="card-body text-center">
+                        <h3 class="text-warning mb-0">{{ ongoing_count }}</h3>
+                        <small class="text-muted">Ongoing</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <h3 class="text-success mb-0">{{ completed_count }}</h3>
+                        <small class="text-muted">Completed</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <h3 class="text-primary mb-0">{{ sessions|length }}</h3>
+                        <small class="text-muted">Total</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sessions Timeline -->
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Timeline</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for session in sessions|sort(attribute='start_time') %}
+                    <div class="list-group-item {% if session.status == 'ongoing' %}border-start border-warning border-4{% endif %}">
+                        <div class="row align-items-center">
+                            <!-- Time -->
+                            <div class="col-md-2 text-center">
+                                <div class="{% if session.status == 'ongoing' %}text-warning{% else %}text-primary{% endif %}">
+                                    <h4 class="mb-0">{{ session.start_time }}</h4>
+                                    <small>{{ session.end_time }}</small>
+                                    <div class="mt-1">
+                                        <small class="badge bg-light text-dark">
+                                            {{ session.get_duration() }} min
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Session Info -->
+                            <div class="col-md-4">
+                                <h6 class="mb-1">
+                                    {% if session.status == 'ongoing' %}
+                                        <span class="badge bg-warning text-dark me-2">LIVE</span>
+                                    {% endif %}
+                                    {{ session.class.class_name }}
+                                </h6>
+                                <p class="mb-1 text-muted small">
+                                    <i class="bi bi-book"></i> {{ session.class.course.course_name }}
+                                </p>
+                                <p class="mb-0">
+                                    <span class="badge bg-light text-dark">
+                                        <i class="bi bi-people"></i> {{ session.total_students }} students
+                                    </span>
+                                </p>
+                            </div>
+
+                            <!-- Status & Stats -->
+                            <div class="col-md-3">
+                                {% if session.status == 'scheduled' %}
+                                    <span class="badge bg-info fs-6">Scheduled</span>
+                                {% elif session.status == 'ongoing' %}
+                                    <span class="badge bg-warning fs-6">In Progress</span>
+                                    <div class="mt-2">
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-success" 
+                                                 style="width: {{ (session.attendance_count / session.total_students * 100)|round }}%">
+                                                {{ session.attendance_count }}/{{ session.total_students }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% elif session.status == 'completed' %}
+                                    <span class="badge bg-success fs-6">Completed</span>
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Attendance: {{ session.attendance_rate }}%
+                                        </small>
+                                    </div>
+                                {% elif session.status == 'dismissed' %}
+                                    <span class="badge bg-secondary fs-6">Dismissed</span>
+                                {% elif session.status == 'cancelled' %}
+                                    <span class="badge bg-danger fs-6">Cancelled</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="col-md-3 text-end">
+                                {% if session.status == 'scheduled' %}
+                                    {% if session.can_start() %}
+                                        <a href="{{ url_for('lecturer_sessions.start_session', session_id=session.session_id) }}" 
+                                           class="btn btn-success">
+                                            <i class="bi bi-play-circle"></i> Start Now
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-outline-secondary" disabled>
+                                            <i class="bi bi-clock"></i> Starts in {{ session.get_time_until_start() }}
+                                        </button>
+                                    {% endif %}
+                                {% elif session.status == 'ongoing' %}
+                                    <a href="{{ url_for('lecturer_attendance.live_attendance', session_id=session.session_id) }}" 
+                                       class="btn btn-primary">
+                                        <i class="bi bi-camera-video"></i> Continue
+                                    </a>
+                                {% elif session.status == 'completed' %}
+                                    <a href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}" 
+                                       class="btn btn-outline-info">
+                                        <i class="bi bi-eye"></i> View
+                                    </a>
+                                {% endif %}
+                                
+                                <div class="btn-group ms-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" 
+                                            data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('lecturer_sessions.session_detail', session_id=session.session_id) }}">
+                                                <i class="bi bi-info-circle"></i> Details
+                                            </a>
+                                        </li>
+                                        {% if session.status in ['scheduled', 'ongoing'] %}
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('lecturer_sessions.update_session', session_id=session.session_id) }}">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('lecturer_sessions.dismiss_session', session_id=session.session_id) }}">
+                                                <i class="bi bi-x-circle"></i> Dismiss
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                        {% if session.status == 'completed' %}
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('lecturer_attendance.correct_attendance', session_id=session.session_id) }}">
+                                                <i class="bi bi-pencil-square"></i> Correct Attendance
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{{ url_for('lecturer_attendance.export_csv', session_id=session.session_id) }}">
+                                                <i class="bi bi-download"></i> Export CSV
+                                            </a>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Session Notes (if any) -->
+                        {% if session.session_notes %}
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <div class="alert alert-light mb-0 py-2">
+                                    <i class="bi bi-sticky"></i>
+                                    <small>{{ session.session_notes }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mt-4">
+            <div class="col-md-12 text-center">
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('lecturer_sessions.create_session') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> Create New Session
+                    </a>
+                    <a href="{{ url_for('lecturer_sessions.upcoming_sessions') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-calendar-week"></i> Upcoming Sessions
+                    </a>
+                    <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-calendar-plus"></i> Bulk Create
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <i class="bi bi-calendar-x text-muted" style="font-size: 4rem;"></i>
+            <h4 class="mt-3 text-muted">No Sessions Today</h4>
+            <p class="text-muted">You don't have any sessions scheduled for today</p>
+            <div class="mt-4">
+                <a href="{{ url_for('lecturer_sessions.create_session') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create New Session
+                </a>
+                <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-calendar-plus"></i> Bulk Create from Timetable
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+{% if ongoing_sessions %}
+<!-- Auto-refresh for ongoing sessions -->
+<script>
+setInterval(function() {
+    location.reload();
+}, 30000); // Refresh every 30 seconds
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% block meta_description %}Face Recognition Attendance System{% endblock %}">
+    <meta name="author" content="Attendance System">
+    <meta name="theme-color" content="#2c3e50">
+    
+    <title>{% block title %}Attendance System{% endblock %}</title>
+    
+    <!-- Include head resources -->
+    {% include 'partials/_head_resources.html' %}
+    
+    <!-- Page-specific CSS -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation Bar -->
+    {% if current_user.is_authenticated %}
+        {% include 'partials/_navbar.html' %}
+    {% endif %}
+    
+    <!-- Loading Overlay -->
+    {% include 'partials/_loading_overlay.html' %}
+    
+    <!-- Flash Messages -->
+    {% include 'partials/_flash_messages.html' %}
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <!-- Footer -->
+    {% block footer %}
+        {% include 'partials/_footer.html' %}
+    {% endblock %}
+    
+    <!-- Include scripts -->
+    {% include 'partials/_scripts.html' %}
+    
+    <!-- Page-specific JavaScript -->
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

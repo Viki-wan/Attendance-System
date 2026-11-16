@@ -1,0 +1,74 @@
+<ul class="navbar-nav ms-auto">
+    <!-- Notifications -->
+    <li class="nav-item dropdown notification-badge">
+        <a class="nav-link" href="#" id="notificationsDropdown" role="button" 
+           data-bs-toggle="dropdown">
+            <i class="bi bi-bell" style="font-size: 1.2rem;"></i>
+            {% if unread_notifications|default(0) > 0 %}
+            <span class="badge">{{ unread_notifications }}</span>
+            {% endif %}
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationsDropdown" 
+            style="min-width: 320px; max-height: 400px; overflow-y: auto;">
+            <li class="dropdown-header">
+                <strong>Notifications</strong>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item text-center text-muted" href="#">
+                    <small>No new notifications</small>
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item text-center" href="{{ url_for('dashboard.notifications') }}">
+                    <i class="bi bi-list"></i> View All Notifications
+                </a>
+            </li>
+        </ul>
+    </li>
+    
+    <!-- User Profile -->
+    <li class="nav-item dropdown">
+        <a class="nav-link p-0" href="#" id="userDropdown" role="button" 
+           data-bs-toggle="dropdown">
+            <div class="user-profile">
+                <div class="user-avatar">
+                    {{ current_user.instructor_name[0]|upper if current_user.instructor_name else 'U' }}
+                </div>
+                <span class="d-none d-md-inline text-white">
+                    {{ current_user.instructor_name }}
+                </span>
+                <i class="bi bi-chevron-down text-white"></i>
+            </div>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+            <li class="dropdown-header">
+                <strong>{{ current_user.instructor_name }}</strong><br>
+                <small class="text-muted">{{ current_user.email }}</small>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item" href="{{ url_for('preferences.index') }}">
+                    <i class="bi bi-gear"></i> Preferences
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                    <i class="bi bi-person"></i> My Profile
+                </a>
+            </li>
+            <li>
+                <a class="dropdown-item" href="{{ url_for('dashboard.statistics') }}">
+                    <i class="bi bi-bar-chart"></i> My Statistics
+                </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+                <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
+            </li>
+        </ul>
+    </li>
+</ul>

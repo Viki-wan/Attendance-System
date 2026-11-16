@@ -1,0 +1,771 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - Attendance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .statistics-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-box {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 20px;
+        transition: transform 0.2s;
+    }
+    
+    .stat-box:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        color: #7f8c8d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    
+    .stat-trend {
+        font-size: 0.9rem;
+        margin-top: 10px;
+    }
+    
+    .stat-trend.up {
+        color: #27ae60;
+    }
+    
+    .stat-trend.down {
+        color: #e74c3c;
+    }
+    
+    .chart-card {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 30px;
+    }
+    
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .chart-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .group-by-selector {
+        display: inline-flex;
+        background: #ecf0f1;
+        border-radius: 8px;
+        padding: 4px;
+    }
+    
+    .group-by-btn {
+        padding: 6px 16px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .group-by-btn:hover {
+        background: rgba(52, 152, 219, 0.1);
+    }
+    
+    .group-by-btn.active {
+        background: var(--secondary-color);
+        color: white;
+    }
+    
+    .performance-table {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .performance-badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .performance-badge.excellent {
+        background: rgba(39, 174, 96, 0.15);
+        color: #27ae60;
+    }
+    
+    .performance-badge.good {
+        background: rgba(52, 152, 219, 0.15);
+        color: #3498db;
+    }
+    
+    .performance-badge.fair {
+        background: rgba(243, 156, 18, 0.15);
+        color: #f39c12;
+    }
+    
+    .performance-badge.poor {
+        background: rgba(230, 126, 34, 0.15);
+        color: #e67e22;
+    }
+    
+    .performance-badge.critical {
+        background: rgba(231, 76, 60, 0.15);
+        color: #e74c3c;
+    }
+    
+    .period-selector {
+        display: inline-flex;
+        background: #ecf0f1;
+        border-radius: 8px;
+        padding: 4px;
+    }
+    
+    .period-btn {
+        padding: 8px 20px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .period-btn:hover {
+        background: rgba(52, 152, 219, 0.1);
+    }
+    
+    .period-btn.active {
+        background: var(--secondary-color);
+        color: white;
+    }
+    
+    .progress-bar-custom {
+        height: 8px;
+        border-radius: 4px;
+        background: #ecf0f1;
+        overflow: hidden;
+    }
+    
+    .progress-bar-custom .fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    canvas {
+        max-height: 400px;
+    }
+    
+    .comparison-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .comparison-item {
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+    }
+    
+    .comparison-item.current {
+        background: rgba(52, 152, 219, 0.1);
+        border-left: 4px solid #3498db;
+    }
+    
+    .comparison-item.previous {
+        background: rgba(149, 165, 166, 0.1);
+        border-left: 4px solid #95a5a6;
+    }
+    
+    .comparison-change {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+    
+    .comparison-change.improving {
+        background: rgba(39, 174, 96, 0.15);
+        color: #27ae60;
+    }
+    
+    .comparison-change.declining {
+        background: rgba(231, 76, 60, 0.15);
+        color: #e74c3c;
+    }
+    
+    .comparison-change.stable {
+        background: rgba(149, 165, 166, 0.15);
+        color: #95a5a6;
+    }
+    
+    .time-period-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        border: 2px solid #ecf0f1;
+        transition: all 0.3s;
+    }
+    
+    .time-period-card:hover {
+        border-color: #3498db;
+        transform: translateY(-2px);
+    }
+    
+    .time-period-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+    
+    .time-period-label {
+        font-size: 0.85rem;
+        color: #7f8c8d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    
+    .time-period-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 5px;
+    }
+    
+    .time-period-sessions {
+        font-size: 0.85rem;
+        color: #7f8c8d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="statistics-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1><i class="fas fa-chart-line me-2"></i>Detailed Statistics</h1>
+                <p class="mb-0 opacity-75">Comprehensive analytics for your classes</p>
+            </div>
+            <div class="period-selector">
+                <button class="period-btn {% if selected_period == 7 %}active{% endif %}" 
+                        onclick="changePeriod(7)">7 Days</button>
+                <button class="period-btn {% if selected_period == 30 %}active{% endif %}" 
+                        onclick="changePeriod(30)">30 Days</button>
+                <button class="period-btn {% if selected_period == 90 %}active{% endif %}" 
+                        onclick="changePeriod(90)">90 Days</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Overview Statistics -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-label">Total Sessions</div>
+                <div class="stat-value">{{ statistics.total_sessions }}</div>
+                <div class="stat-trend">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    Last {{ statistics.period_days }} days
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-label">Completion Rate</div>
+                <div class="stat-value">{{ statistics.completion_rate }}%</div>
+                <div class="progress-bar-custom mt-3">
+                    <div class="fill" 
+                         style="width: {{ statistics.completion_rate }}%; background: {% if statistics.completion_rate >= 80 %}#27ae60{% elif statistics.completion_rate >= 60 %}#3498db{% else %}#e74c3c{% endif %};">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-label">Average Attendance</div>
+                <div class="stat-value">{{ statistics.average_attendance }}%</div>
+                <div class="progress-bar-custom mt-3">
+                    <div class="fill" 
+                         style="width: {{ statistics.average_attendance }}%; background: {% if statistics.average_attendance >= 75 %}#27ae60{% elif statistics.average_attendance >= 60 %}#f39c12{% else %}#e74c3c{% endif %};">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-label">Active Classes</div>
+                <div class="stat-value">{{ statistics.active_classes }}</div>
+                <div class="stat-trend">
+                    <i class="fas fa-users me-1"></i>
+                    {{ statistics.total_students }} total students
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Attendance Trend Chart -->
+    <div class="chart-card">
+        <div class="chart-header">
+            <h4 class="chart-title mb-0">
+                <i class="fas fa-chart-area text-primary me-2"></i>Attendance Trend
+            </h4>
+            <div class="group-by-selector">
+                <button class="group-by-btn {% if group_by == 'day' %}active{% endif %}" 
+                        onclick="changeGroupBy('day')">Daily</button>
+                <button class="group-by-btn {% if group_by == 'week' %}active{% endif %}" 
+                        onclick="changeGroupBy('week')">Weekly</button>
+                <button class="group-by-btn {% if group_by == 'class' %}active{% endif %}" 
+                        onclick="changeGroupBy('class')">By Class</button>
+            </div>
+        </div>
+        <canvas id="attendanceTrendChart"></canvas>
+    </div>
+    
+    <div class="row g-4 mb-4">
+        <!-- Period Comparison -->
+        <div class="col-lg-6">
+            <div class="comparison-card">
+                <h4 class="mb-4">
+                    <i class="fas fa-exchange-alt text-info me-2"></i>Period Comparison
+                </h4>
+                
+                {% if comparison_data %}
+                <div class="comparison-item current">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-label">Current Period</div>
+                            <div class="h5 mb-1">{{ comparison_data.current.period }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="h2 mb-0 text-primary">{{ comparison_data.current.attendance }}%</div>
+                            <small class="text-muted">{{ comparison_data.current.sessions }} sessions</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="comparison-item previous">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stat-label">Previous Period</div>
+                            <div class="h5 mb-1">{{ comparison_data.previous.period }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="h2 mb-0 text-muted">{{ comparison_data.previous.attendance }}%</div>
+                            <small class="text-muted">{{ comparison_data.previous.sessions }} sessions</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <div class="comparison-change {% if comparison_data.change.is_improving %}improving{% elif comparison_data.change.absolute < 0 %}declining{% else %}stable{% endif %}">
+                        <i class="fas fa-{% if comparison_data.change.direction == 'up' %}arrow-up{% elif comparison_data.change.direction == 'down' %}arrow-down{% else %}minus{% endif %} me-2"></i>
+                        {{ comparison_data.change.absolute|abs }}% 
+                        ({{ comparison_data.change.percentage|abs }}%)
+                        {% if comparison_data.change.is_improving %}
+                            improvement
+                        {% elif comparison_data.change.absolute < 0 %}
+                            decline
+                        {% else %}
+                            no change
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle fa-2x mb-3 opacity-25"></i>
+                    <p>Not enough data for comparison</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Peak Attendance Times -->
+        <div class="col-lg-6">
+            <div class="comparison-card">
+                <h4 class="mb-4">
+                    <i class="fas fa-clock text-warning me-2"></i>Peak Attendance Times
+                </h4>
+                
+                {% if peak_times and peak_times.periods %}
+                <div class="row g-3">
+                    <div class="col-4">
+                        <div class="time-period-card">
+                            <div class="time-period-icon">🌅</div>
+                            <div class="time-period-label">Morning</div>
+                            <div class="time-period-value">{{ peak_times.periods.morning.attendance }}%</div>
+                            <div class="time-period-sessions">{{ peak_times.periods.morning.sessions }} sessions</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="time-period-card">
+                            <div class="time-period-icon">☀️</div>
+                            <div class="time-period-label">Afternoon</div>
+                            <div class="time-period-value">{{ peak_times.periods.afternoon.attendance }}%</div>
+                            <div class="time-period-sessions">{{ peak_times.periods.afternoon.sessions }} sessions</div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="time-period-card">
+                            <div class="time-period-icon">🌙</div>
+                            <div class="time-period-label">Evening</div>
+                            <div class="time-period-value">{{ peak_times.periods.evening.attendance }}%</div>
+                            <div class="time-period-sessions">{{ peak_times.periods.evening.sessions }} sessions</div>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if peak_times.hourly %}
+                <div class="mt-4">
+                    <canvas id="hourlyChart" style="max-height: 250px;"></canvas>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-clock fa-2x mb-3 opacity-25"></i>
+                    <p>Not enough data for time analysis</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Class Performance -->
+        <div class="col-lg-8">
+            <div class="performance-table">
+                <h4 class="mb-4">
+                    <i class="fas fa-trophy text-warning me-2"></i>Class Performance
+                </h4>
+                
+                {% if class_performance %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Class</th>
+                                <th class="text-center">Sessions</th>
+                                <th class="text-center">Avg. Attendance</th>
+                                <th class="text-center">Performance</th>
+                                <th class="text-center">Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for performance in class_performance %}
+                            <tr>
+                                <td>
+                                    <strong>{{ performance.class_name }}</strong><br>
+                                    <small class="text-muted">{{ performance.class_id }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary">{{ performance.total_sessions }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <div style="width: 80px;">
+                                            <div class="progress-bar-custom">
+                                                <div class="fill" 
+                                                     style="width: {{ performance.average_attendance }}%; 
+                                                            background: {% if performance.average_attendance >= 80 %}#27ae60{% elif performance.average_attendance >= 70 %}#3498db{% elif performance.average_attendance >= 60 %}#f39c12{% else %}#e74c3c{% endif %};">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <strong class="ms-2">{{ performance.average_attendance }}%</strong>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <span class="performance-badge {{ performance.performance_status }}">
+                                        {{ performance.performance_status|upper }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    {% if performance.average_attendance >= 80 %}
+                                        <i class="fas fa-arrow-up text-success"></i>
+                                    {% elif performance.average_attendance >= 60 %}
+                                        <i class="fas fa-minus text-warning"></i>
+                                    {% else %}
+                                        <i class="fas fa-arrow-down text-danger"></i>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-chart-bar fa-3x mb-3 opacity-25"></i>
+                    <p>No performance data available for this period</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Quick Insights -->
+        <div class="col-lg-4">
+            <div class="stat-box">
+                <h5 class="mb-4">
+                    <i class="fas fa-lightbulb text-warning me-2"></i>Quick Insights
+                </h5>
+                
+                <!-- Best Performing Class -->
+                {% if class_performance %}
+                <div class="mb-4">
+                    <div class="stat-label">Best Performing Class</div>
+                    <div class="h5 mb-1">{{ class_performance[0].class_name }}</div>
+                    <small class="text-success">
+                        <i class="fas fa-check-circle me-1"></i>
+                        {{ class_performance[0].average_attendance }}% attendance
+                    </small>
+                </div>
+                
+                <!-- Needs Attention -->
+                {% if class_performance|length > 1 %}
+                <div class="mb-4">
+                    <div class="stat-label">Needs Attention</div>
+                    <div class="h5 mb-1">{{ class_performance[-1].class_name }}</div>
+                    <small class="text-warning">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        {{ class_performance[-1].average_attendance }}% attendance
+                    </small>
+                </div>
+                {% endif %}
+                {% endif %}
+                
+                <!-- Session Frequency -->
+                <div class="mb-4">
+                    <div class="stat-label">Session Frequency</div>
+                    <div class="h5 mb-1">
+                        {{ (statistics.total_sessions / statistics.period_days)|round(1) }} sessions/day
+                    </div>
+                    <small class="text-muted">
+                        <i class="fas fa-calendar-check me-1"></i>
+                        Based on {{ statistics.period_days }}-day period
+                    </small>
+                </div>
+                
+                <!-- Completion Performance -->
+                <div>
+                    <div class="stat-label">Completion Performance</div>
+                    <div class="h5 mb-1">{{ statistics.completed_sessions }} / {{ statistics.total_sessions }}</div>
+                    <small class="{% if statistics.completion_rate >= 80 %}text-success{% elif statistics.completion_rate >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                        <i class="fas fa-{% if statistics.completion_rate >= 80 %}check-circle{% elif statistics.completion_rate >= 60 %}minus-circle{% else %}times-circle{% endif %} me-1"></i>
+                        {{ statistics.completion_rate }}% completion rate
+                    </small>
+                </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="stat-box mt-4">
+                <h5 class="mb-3">
+                    <i class="fas fa-download text-primary me-2"></i>Export Statistics
+                </h5>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="exportStatistics('pdf')">
+                        <i class="fas fa-file-pdf me-2"></i>Export as PDF
+                    </button>
+                    <button class="btn btn-outline-success" onclick="exportStatistics('excel')">
+                        <i class="fas fa-file-excel me-2"></i>Export as Excel
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="exportStatistics('csv')">
+                        <i class="fas fa-file-csv me-2"></i>Export as CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Back Button -->
+    <div class="text-center mt-4">
+        <a href="{{ url_for('dashboard.index') }}" class="btn btn-lg btn-outline-primary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+    // Parse trend data safely
+    let trendData;
+    try {
+        trendData = {{ trend_data|tojson|safe }};
+        console.log('Trend data loaded:', trendData);
+    } catch (e) {
+        console.error('Error parsing trend data:', e);
+        trendData = { labels: [], data: [], sessions: [], raw_data: [] };
+    }
+    
+    // Main Attendance Trend Chart
+    if (trendData.labels && trendData.labels.length > 0) {
+        const ctx = document.getElementById('attendanceTrendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trendData.labels,
+                datasets: [{
+                    label: 'Average Attendance (%)',
+                    data: trendData.data,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#3498db',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(44, 62, 80, 0.9)',
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                const index = context.dataIndex;
+                                let label = 'Attendance: ' + value.toFixed(1) + '%';
+                                if (trendData.sessions && trendData.sessions[index]) {
+                                    label += ' (' + trendData.sessions[index] + ' sessions)';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: value => value + '%' },
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    } else {
+        document.getElementById('attendanceTrendChart').parentElement.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-chart-line fa-3x mb-3 opacity-25"></i>
+                <p>No attendance data available for the selected period</p>
+            </div>
+        `;
+    }
+    
+    // Hourly Chart (Peak Times)
+    {% if peak_times and peak_times.hourly %}
+    const hourlyData = {{ peak_times.hourly|tojson|safe }};
+    if (hourlyData && hourlyData.length > 0) {
+        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+        new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: hourlyData.map(h => h.hour),
+                datasets: [{
+                    label: 'Attendance %',
+                    data: hourlyData.map(h => h.attendance),
+                    backgroundColor: hourlyData.map(h => {
+                        if (h.attendance >= 80) return 'rgba(39, 174, 96, 0.7)';
+                        if (h.attendance >= 70) return 'rgba(52, 152, 219, 0.7)';
+                        if (h.attendance >= 60) return 'rgba(243, 156, 18, 0.7)';
+                        return 'rgba(231, 76, 60, 0.7)';
+                    }),
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const index = context.dataIndex;
+                                return [
+                                    'Attendance: ' + hourlyData[index].attendance + '%',
+                                    'Sessions: ' + hourlyData[index].sessions
+                                ];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { callback: value => value + '%' }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+    
+    // Navigation functions
+    function changePeriod(days) {
+        const groupBy = '{{ group_by }}';
+        window.location.href = `{{ url_for('dashboard.statistics') }}?days=${days}&group_by=${groupBy}`;
+    }
+    
+    function changeGroupBy(groupBy) {
+        const days = {{ selected_period }};
+        window.location.href = `{{ url_for('dashboard.statistics') }}?days=${days}&group_by=${groupBy}`;
+    }
+    
+    function exportStatistics(format) {
+        const days = {{ selected_period }};
+        window.location.href = `{{ url_for('dashboard.export_statistics') }}?days=${days}&format=${format}`;
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Session{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-plus-circle"></i> Create New Session</h2>
+                <a href="{{ url_for('lecturer_sessions.list_sessions') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Sessions
+                </a>
+            </div>
+
+            <!-- Form Card -->
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="POST" action="{{ url_for('lecturer_sessions.create_session') }}" id="createSessionForm">
+                        <!-- Class Selection -->
+                        <div class="mb-4">
+                            <label for="class_id" class="form-label fw-bold">
+                                Class <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-select" id="class_id" name="class_id" required onchange="loadClassInfo()">
+                                <option value="">Select a class...</option>
+                                {% for class in classes %}
+                                <option value="{{ class.class_id }}" 
+                                        data-course="{{ class.course.course_name }}"
+                                        data-students="{{ class.get_students()|length }}">
+                                    {{ class.class_name }} - {{ class.course.course_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select the class for this session</div>
+                        </div>
+
+                        <!-- Class Info Display -->
+                        <div id="classInfo" class="alert alert-info d-none mb-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Course:</strong> <span id="courseName"></span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Expected Students:</strong> <span id="studentCount"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Date -->
+                        <div class="mb-4">
+                            <label for="date" class="form-label fw-bold">
+                                Date <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   id="date" 
+                                   name="date" 
+                                   required
+                                   min="{{ today }}"
+                                   onchange="checkConflicts()">
+                            <div class="form-text">Session date</div>
+                        </div>
+
+                        <!-- Time Range -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="start_time" class="form-label fw-bold">
+                                    Start Time <span class="text-danger">*</span>
+                                </label>
+                                <input type="time" 
+                                       class="form-control" 
+                                       id="start_time" 
+                                       name="start_time" 
+                                       required
+                                       onchange="checkConflicts()">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="end_time" class="form-label fw-bold">
+                                    End Time <span class="text-danger">*</span>
+                                </label>
+                                <input type="time" 
+                                       class="form-control" 
+                                       id="end_time" 
+                                       name="end_time" 
+                                       required
+                                       onchange="checkConflicts()">
+                            </div>
+                        </div>
+
+                        <!-- Conflict Warning -->
+                        <div id="conflictWarning" class="alert alert-danger d-none mb-4">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Conflict Detected!</strong>
+                            <div id="conflictDetails"></div>
+                        </div>
+
+                        <!-- Session Notes -->
+                        <div class="mb-4">
+                            <label for="session_notes" class="form-label fw-bold">
+                                Session Notes (Optional)
+                            </label>
+                            <textarea class="form-control" 
+                                      id="session_notes" 
+                                      name="session_notes" 
+                                      rows="3"
+                                      placeholder="Add any notes about this session..."></textarea>
+                            <div class="form-text">
+                                Topics to be covered, special instructions, etc.
+                            </div>
+                        </div>
+
+                        <!-- Auto-start Option -->
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="auto_start" 
+                                       name="auto_start">
+                                <label class="form-check-label" for="auto_start">
+                                    Start session immediately after creation (if within time window)
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('lecturer_sessions.list_sessions') }}" 
+                               class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="bi bi-check-circle"></i> Create Session
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Help Card -->
+            <div class="card mt-4 border-info">
+                <div class="card-body">
+                    <h6 class="card-title text-info">
+                        <i class="bi bi-info-circle"></i> Quick Tips
+                    </h6>
+                    <ul class="mb-0 small">
+                        <li>Sessions can be started 15 minutes before scheduled time</li>
+                        <li>System automatically detects scheduling conflicts</li>
+                        <li>You can bulk create sessions from <a href="{{ url_for('lecturer_sessions.bulk_create_sessions') }}">timetable</a></li>
+                        <li>Students are automatically enrolled based on class membership</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadClassInfo() {
+    const select = document.getElementById('class_id');
+    const option = select.options[select.selectedIndex];
+    
+    if (option.value) {
+        document.getElementById('courseName').textContent = option.dataset.course;
+        document.getElementById('studentCount').textContent = option.dataset.students;
+        document.getElementById('classInfo').classList.remove('d-none');
+        checkConflicts();
+    } else {
+        document.getElementById('classInfo').classList.add('d-none');
+    }
+}
+
+function checkConflicts() {
+    const classId = document.getElementById('class_id').value;
+    const date = document.getElementById('date').value;
+    const startTime = document.getElementById('start_time').value;
+    const endTime = document.getElementById('end_time').value;
+
+    // Validate end time is after start time
+    if (startTime && endTime && startTime >= endTime) {
+        document.getElementById('conflictWarning').classList.remove('d-none');
+        document.getElementById('conflictDetails').innerHTML = 
+            '<p class="mb-0">End time must be after start time</p>';
+        document.getElementById('submitBtn').disabled = true;
+        return;
+    }
+
+    if (!classId || !date || !startTime || !endTime) {
+        document.getElementById('conflictWarning').classList.add('d-none');
+        document.getElementById('submitBtn').disabled = false;
+        return;
+    }
+
+    // Check for conflicts via AJAX
+    fetch('/lecturer/sessions/api/check-conflict', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            class_id: classId,
+            date: date,
+            start_time: startTime,
+            end_time: endTime
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.has_conflict) {
+            document.getElementById('conflictWarning').classList.remove('d-none');
+            let html = '<ul class="mb-0">';
+            data.conflicts.forEach(conflict => {
+                html += `<li>${conflict}</li>`;
+            });
+            html += '</ul>';
+            document.getElementById('conflictDetails').innerHTML = html;
+            document.getElementById('submitBtn').disabled = true;
+        } else {
+            document.getElementById('conflictWarning').classList.add('d-none');
+            document.getElementById('submitBtn').disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error checking conflicts:', error);
+        document.getElementById('conflictWarning').classList.add('d-none');
+        document.getElementById('submitBtn').disabled = false;
+    });
+}
+
+// Set today's date as minimum
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date').min = today;
+});
+</script>
+{% endblock %}

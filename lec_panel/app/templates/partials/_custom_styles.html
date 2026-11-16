@@ -1,0 +1,139 @@
+<style>
+    :root {
+        --primary-color: #2c3e50;
+        --secondary-color: #3498db;
+        --success-color: #27ae60;
+        --danger-color: #e74c3c;
+        --warning-color: #f39c12;
+        --info-color: #3498db;
+        --light-bg: #ecf0f1;
+        --dark-bg: #34495e;
+        --light-text: #7f8c8d;
+        --dark-text: #2c3e50;
+        --border-color: #bdc3c7;
+        --sidebar-width: 260px;
+        --navbar-height: 70px;
+    }
+    
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f6fa;
+        color: var(--dark-text);
+        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .main-content {
+        flex: 1;
+        padding-top: 20px;
+        min-height: calc(100vh - var(--navbar-height) - 80px);
+    }
+    
+    /* Utility Classes */
+    .card-hover {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .card-hover:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .text-gradient {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .badge-status {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    
+    .badge-present {
+        background: rgba(39, 174, 96, 0.15);
+        color: var(--success-color);
+    }
+    
+    .badge-absent {
+        background: rgba(231, 76, 60, 0.15);
+        color: var(--danger-color);
+    }
+    
+    .badge-late {
+        background: rgba(243, 156, 18, 0.15);
+        color: var(--warning-color);
+    }
+    
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--secondary-color);
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-color);
+    }
+    
+    /* Animation Utilities */
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Button Enhancements */
+    .btn {
+        transition: all 0.3s;
+    }
+    
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn:active {
+        transform: translateY(0);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .main-content {
+            padding-top: 10px;
+        }
+    }
+</style>
+
+<!-- Include navbar styles -->
+{% include 'partials/_navbar_styles.html' %}
+
+<!-- Include flash message styles -->
+{% include 'partials/_flash_styles.html' %}
