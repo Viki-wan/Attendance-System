@@ -221,7 +221,7 @@ A student-facing web portal for viewing attendance records.
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/attendance-system.git
+git clone https://github.com/Viki-wan/attendance-system.git
 cd attendance-system
 ```
 
