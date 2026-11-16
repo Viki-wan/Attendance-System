@@ -81,6 +81,13 @@ The admin panel is a feature-rich desktop application for system administrators.
   - Activity logging
   - Access control
 
+<img width="1366" height="768" alt="Screenshot (132)" src="https://github.com/user-attachments/assets/373becad-d251-4bbd-a3f1-76fa2a4fc5a2" />
+<img width="1366" height="768" alt="Screenshot (133)" src="https://github.com/user-attachments/assets/a7ddd467-7b59-4974-94ba-538b06c30ad3" />
+<img width="1366" height="768" alt="Screenshot (163)" src="https://github.com/user-attachments/assets/1824ae0a-5c72-4324-9e03-892255e07b80" />
+<img width="1366" height="768" alt="Screenshot (165)" src="https://github.com/user-attachments/assets/799ed6c0-6c23-434c-9afd-f561307fbcaf" />
+
+
+
 ### 👨‍🏫 Lecturer Portal (Flask Web Application)
 
 A modern web-based interface for lecturers to manage their classes and sessions.
@@ -92,6 +99,8 @@ A modern web-based interface for lecturers to manage their classes and sessions.
   - Quick access to recent activities
   - Attendance statistics summary
   - Course and class information
+
+    <img width="1366" height="768" alt="Screenshot (212)" src="https://github.com/user-attachments/assets/e079ad4a-d49d-442e-943e-809aa431da9c" />
 
 - **Live Attendance Capture**
   - Real-time face recognition via browser camera
@@ -120,6 +129,7 @@ A modern web-based interface for lecturers to manage their classes and sessions.
   - Export to CSV/PDF
   - Visual charts and graphs
   - Attendance trends analysis
+    <img width="1366" height="768" alt="Screenshot (214)" src="https://github.com/user-attachments/assets/f15d8fbd-2db6-4030-aebc-b475ed74cc62" />
 
 - **Preferences**
   - Notification settings
@@ -207,7 +217,7 @@ A student-facing web portal for viewing attendance records.
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/attendance-system.git
+git clone https://github.com/Viki-wan/attendance-system.git
 cd attendance-system
 ```
 
@@ -545,15 +555,6 @@ FLASK_CONFIG=development
 
 View logs in `logs/app.log` or console output.
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ### Contribution Guidelines
 

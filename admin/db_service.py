@@ -1,8 +1,9 @@
 import sqlite3
 from datetime import datetime
+from config.utils_constants import DATABASE_PATH as DEFAULT_DB_PATH
 
 class DatabaseService:
-    def __init__(self, db_path="attendance.db"):
+    def __init__(self, db_path=DEFAULT_DB_PATH):
         self.db_path = db_path
     
     def get_connection(self):
@@ -21,6 +22,48 @@ class DatabaseService:
         except Exception as e:
             print(f"Error loading settings: {e}")
             return {}
+
+    def _determine_current_semester_number(self):
+        """Determine current semester number based on today's month.
+
+        Returns:
+            int: 1 for first semester (Sep-Dec and default during breaks), 2 for second semester (Jan-Apr)
+        """
+        month = datetime.now().month
+        if 9 <= month <= 12:
+            return 1
+        if 1 <= month <= 4:
+            return 2
+        # During break months (May-Aug), default to upcoming first semester
+        return 1
+
+    def sync_students_current_semester(self):
+        """Synchronize students.current_semester to match their year_of_study and the current term.
+
+        This ensures values like "1.1", "2.2" etc., aligning students with sessions generated for the
+        current semester window. Only rows with non-null year_of_study are updated.
+        """
+        try:
+            current_semester_num = self._determine_current_semester_number()
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            # Update students' current_semester to "{year}.{sem}" where year_of_study exists
+            cursor.execute(
+                """
+                UPDATE students
+                SET current_semester = CAST(year_of_study AS TEXT) || '.' || ?
+                WHERE year_of_study IS NOT NULL
+                """,
+                (str(current_semester_num),)
+            )
+
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error syncing students current_semester: {e}")
+            return False
     
     def save_setting(self, key, value):
         """Save a specific setting"""

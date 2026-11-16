@@ -4,9 +4,8 @@ import sqlite3
 from PyQt5.QtWidgets import QApplication
 from admin.login_window import LoginWindow
 from styles.theme_manager import ThemeManager
-
-
-DATABASE_PATH = "attendance.db"  # Ensure this points to your actual DB path
+from admin.db_service import DatabaseService
+from config.utils_constants import DATABASE_PATH
 
 def load_settings():
     """Loads settings from the database."""
@@ -36,6 +35,12 @@ def main():
     app.setProperty("theme_manager", theme_manager)
 
     # Start with the login window
+    # Semester sync at startup
+    try:
+        DatabaseService().sync_students_current_semester()
+    except Exception as e:
+        print(f"Semester sync on startup failed: {e}")
+
     login_window = LoginWindow()
     login_window.show()
 

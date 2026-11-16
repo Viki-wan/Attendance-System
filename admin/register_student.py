@@ -241,15 +241,9 @@ class RegisterStudentWindow(QMainWindow):
         self.year_input = QSpinBox()
         self.year_input.setRange(1, 6)
         self.year_input.setValue(1)
-        self.year_input.valueChanged.connect(self.update_semester_options)
         academic_layout.addRow("Year of Study:", self.year_input)
         
-        
-        # Current semester
-        self.semester_input = QComboBox()
-        self.semester_input.addItems(["1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "4.1", "4.2"])
-        self.update_semester_options(self.year_input.value())
-        academic_layout.addRow("Current Semester:", self.semester_input)
+        # Current semester is computed automatically during registration
         
         self.tab_widget.addTab(academic_tab, "🎓 Academic Info")
         
@@ -511,7 +505,7 @@ class RegisterStudentWindow(QMainWindow):
             self.progress_indicator.setFormat("Step 1 of 3: Personal Information")
         elif tab_index == 1:  # Academic Info
             self.progress_indicator.setValue(66)
-            self.progress_indicator.setFormat("Step 2 of 3: Academic Information")
+            self.progress_indicator.setFormat("Step 2 of 3: Academic Information (semester auto-detected)")
         elif tab_index == 2:  # Photo
             self.progress_indicator.setValue(100)
             self.progress_indicator.setFormat("Step 3 of 3: Photo Capture")
@@ -609,11 +603,8 @@ class RegisterStudentWindow(QMainWindow):
         return True
     
     def setup_year_semester_validation(self):
-        # Connect the year input's valueChanged signal to a custom slot
-        self.year_input.valueChanged.connect(self.update_semester_options)
-        
-        # Initial update to set correct options based on default year
-        self.update_semester_options(self.year_input.value())
+        # Semester options are no longer user-selectable; computed automatically
+        return
 
     def suggest_year_from_registration(self, registration_id):
         """Suggest academic year based on registration number and current date"""
@@ -650,77 +641,18 @@ class RegisterStudentWindow(QMainWindow):
 
 
     def determine_current_semester(self):
-        """Determine the current semester based on today's date
-        and student's registration year"""
+        """Determine the current semester number based on today's date."""
         import datetime
-        
-        today = datetime.date.today()
-        month = today.month
-        
-        # Get registration year from ID if available
-        student_id = self.id_input.text().strip()
-        reg_year = None
-        
-        match = re.match(r"^S\d{2}/\d{5}/(\d{2})$", student_id)
-        if match:
-            reg_year = int(match.group(1))
-        
-        # Determine base semester from month
+        month = datetime.date.today().month
         if 9 <= month <= 12:
-            # First semester (September to December)
-            base_semester = 1
-        elif 1 <= month <= 4:
-            # Second semester (January to April)
-            base_semester = 2
-        else:
-            # Default to first semester during break months
-            base_semester = 1
-        
-        # Special adjustments for specific cohorts
-        if reg_year == 24:  # 2024 cohort
-            # Currently in second semester of first year
-            return 2 if self.year_input.value() == 1 else base_semester
-        
-        # General case - just return the base semester
-        return base_semester
+            return 1
+        if 1 <= month <= 4:
+            return 2
+        return 1
     
     def update_semester_options(self, year):
-        """Update semester options based on selected year and current academic period"""
-        # Store the current text before clearing (if possible)
-        current_text = self.semester_input.currentText()
-        
-        # Block signals temporarily to prevent unintended side effects
-        self.semester_input.blockSignals(True)
-        
-        # Clear all existing items
-        self.semester_input.clear()
-        
-        # Add the relevant semesters for the selected year
-        self.semester_input.addItem(f"{year}.1")
-        self.semester_input.addItem(f"{year}.2")
-        
-        # Determine the current academic semester
-        current_semester = self.determine_current_semester()
-        
-        # Set the default semester based on the academic period
-        default_semester = f"{year}.{current_semester}"
-        
-        # Try to select the current academic semester by default
-        index = self.semester_input.findText(default_semester)
-        if index >= 0:
-            self.semester_input.setCurrentIndex(index)
-        else:
-            # If not found (shouldn't happen), set to first item
-            self.semester_input.setCurrentIndex(0)
-        
-        # Try to restore previous selection if valid and if this isn't the first load
-        if current_text:
-            prev_index = self.semester_input.findText(current_text)
-            if prev_index >= 0:
-                self.semester_input.setCurrentIndex(prev_index)
-        
-        # Unblock signals
-        self.semester_input.blockSignals(False)   
+        # No-op: semester is computed automatically
+        return
 
     def block_numbers_in_name(self):
         """Prevent numbers from being typed in the name field."""
@@ -1317,7 +1249,9 @@ class RegisterStudentWindow(QMainWindow):
         
         # Get additional input values
         year = self.year_input.value()
-        semester = self.semester_input.currentText()
+        # Compute current semester string automatically, e.g., "2.1" or "2.2"
+        semester_num = self.determine_current_semester()
+        semester = f"{year}.{semester_num}"
         email = self.email_input.text().strip()
         phone = self.phone_input.text().strip()
 
